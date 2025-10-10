@@ -4,6 +4,13 @@ import styles from "@/styles/app.module.css";
 export const Cards = () => {
   return (
     <div className={styles.grid}>
+      <Link href="/discourse/link" className={styles.card}>
+        <h2>
+          Link Discourse <span>-&gt;</span>
+        </h2>
+        <p>Connect your NEAR account with your Discourse forum account.</p>
+      </Link>
+
       <Link
         href="https://docs.near.org/build/web3-apps/quickstart"
         className={styles.card}
