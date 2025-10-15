@@ -87,9 +87,9 @@ export const ProposalScreener = () => {
           <div className="screener-header text-center">
             <h1 className="page-title">AI Proposal Screener</h1>
             <p className="page-subtitle">
-              Pre-screen your NEAR governance proposal with AI evaluation before
-              submitting to the community
+              <b>Private Governance Proposal Reviews</b>
             </p>
+            <p className="page-subtitle">Built on NEAR AI Cloud</p>
           </div>
 
           <div className="form">
