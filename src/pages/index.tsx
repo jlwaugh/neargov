@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useNear } from "@/hooks/useNear";
 import { ProposalForm } from "../components/ProposalForm";
@@ -7,7 +9,7 @@ import { PublishButton } from "../components/PublishButton";
 import { WalletStatus } from "../components/WalletStatus";
 
 export default function Main() {
-  const { signedAccountId, wallet, loading: walletLoading } = useNear();
+  const { signedAccountId, wallet, loading: walletLoading, signIn } = useNear();
 
   const [title, setTitle] = useState("");
   const [proposal, setProposal] = useState("");
@@ -54,17 +56,12 @@ export default function Main() {
       <div className="container">
         <div className="card">
           <div className="screener-header text-center">
-            <h1 className="page-title">AI Proposal Screener</h1>
+            <h1 className="page-title">Proposal Screener</h1>
             <p className="page-subtitle">
-              Pre-screen your NEAR governance proposal with AI evaluation, then
-              publish directly to Discourse
+              Use NEAR AI to privately check against established criteria, then
+              publish to the forum.
             </p>
           </div>
-
-          <WalletStatus
-            signedAccountId={signedAccountId}
-            loading={walletLoading}
-          />
 
           <ProposalForm
             title={title}
@@ -82,11 +79,29 @@ export default function Main() {
             </div>
           )}
 
-          {result && (
-            <>
-              <ScreeningResults evaluation={result} />
+          <>
+            {/* <ScreeningResults evaluation={result} /> */}
 
-              {result.overallPass && signedAccountId && wallet && (
+            <>
+              {/* Show wallet warning here if not connected */}
+              {!signedAccountId && (
+                <div
+                  className="alert alert-error"
+                  style={{ marginTop: "2rem" }}
+                >
+                  <span className="alert-icon">⚠</span>
+                  <div>
+                    <p className="alert-text" style={{ marginBottom: "1rem" }}>
+                      Please connect your NEAR wallet to publish your proposal
+                    </p>
+                    <button onClick={signIn} className="btn btn-primary">
+                      Connect NEAR Wallet
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {signedAccountId && wallet && (
                 <>
                   {!linkedAccount && (
                     <ConnectDiscourse
@@ -110,7 +125,7 @@ export default function Main() {
                 </>
               )}
             </>
-          )}
+          </>
         </div>
 
         <footer className="footer">

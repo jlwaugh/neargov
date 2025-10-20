@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { useNear } from "@/hooks/useNear";
 import { SocialContract } from "../config";
@@ -27,14 +29,11 @@ export default function Profile() {
 
       // Check if Discourse account is linked
       try {
-        const linkResponse = await fetch(
-          "http://localhost:3001/api/linkage/get",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nearAccount: signedAccountId }),
-          }
-        );
+        const linkResponse = await fetch("/api/discourse/linkage/get", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nearAccount: signedAccountId }),
+        });
 
         if (linkResponse.ok) {
           const linkData = await linkResponse.json();

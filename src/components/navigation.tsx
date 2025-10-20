@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
@@ -23,12 +25,11 @@ export const Navigation = () => {
 
       setCheckingDiscourse(true);
       try {
-        const response = await fetch("http://localhost:3001/api/linkage/get", {
+        const response = await fetch("/api/discourse/linkage/get", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nearAccount: signedAccountId }),
         });
-
         if (response.ok) {
           const data = await response.json();
           setIsDiscourseLinked(!!data);

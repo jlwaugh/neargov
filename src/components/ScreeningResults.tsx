@@ -108,7 +108,7 @@ export const ScreeningResults = ({ evaluation }: ScreeningResultsProps) => {
       </div>
 
       {evaluation.overallPass && (
-        <div className="feature-card">
+        <div className="feature-card" style={{ marginBottom: "2rem" }}>
           <div className="feature-icon">✓</div>
           <div>
             <h3 className="feature-title">AI Screened & Approved</h3>

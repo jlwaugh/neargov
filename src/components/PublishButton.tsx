@@ -54,14 +54,14 @@ export const PublishButton = ({
 
 `;
 
-      const response = await fetch("http://localhost:3001/api/posts/create", {
+      const response = await fetch("/api/discourse/posts/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           authToken: authToken,
           title: title,
           raw: badge + content,
-          category: 5, // Public Proposals category
+          category: 5,
         }),
       });
 

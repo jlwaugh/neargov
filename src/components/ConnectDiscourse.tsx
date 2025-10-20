@@ -28,17 +28,14 @@ export const ConnectDiscourse = ({
     onError("");
 
     try {
-      const response = await fetch(
-        "http://localhost:3001/api/auth/user-api-url",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId: "discourse-near-plugin",
-            applicationName: "Nearly",
-          }),
-        }
-      );
+      const response = await fetch("/api/discourse/auth/user-api-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: "discourse-near-plugin",
+          applicationName: "Nearly",
+        }),
+      });
 
       if (!response.ok) throw new Error("Failed to generate auth URL");
 
@@ -81,7 +78,7 @@ export const ConnectDiscourse = ({
         recipient: "social.near",
       });
 
-      const response = await fetch("http://localhost:3001/api/auth/complete", {
+      const response = await fetch("/api/discourse/auth/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
