@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { client } from "@/lib/orpc";
 
 interface PublishButtonProps {
   wallet: any;
@@ -54,23 +55,12 @@ export const PublishButton = ({
 
 `;
 
-      const response = await fetch("/api/discourse/posts/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          authToken: authToken,
-          title: title,
-          raw: badge + content,
-          category: 5,
-        }),
+      const data = await client.discourse.createPost({
+        authToken: authToken,
+        title: title,
+        raw: badge + content,
+        category: 5,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to publish");
-      }
-
-      const data = await response.json();
 
       if (data.success && data.postUrl) {
         setPublished(true);
