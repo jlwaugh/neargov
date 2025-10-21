@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { client } from "@/lib/orpc";
 
 interface DiscourseConnectProps {
   signedAccountId: string;
@@ -28,18 +29,10 @@ export const ConnectDiscourse = ({
     onError("");
 
     try {
-      const response = await fetch("/api/discourse/auth/user-api-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: "discourse-near-plugin",
-          applicationName: "Nearly",
-        }),
+      const data = await client.discourse.getUserApiAuthUrl({
+        clientId: "discourse-near-plugin",
+        applicationName: "Nearly",
       });
-
-      if (!response.ok) throw new Error("Failed to generate auth URL");
-
-      const data = await response.json();
       setAuthUrl(data.authUrl);
       setNonce(data.nonce);
       window.open(data.authUrl, "_blank");
@@ -78,22 +71,11 @@ export const ConnectDiscourse = ({
         recipient: "social.near",
       });
 
-      const response = await fetch("/api/discourse/auth/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payload: payload.trim(),
-          nonce: nonce,
-          authToken: authToken,
-        }),
+      const data = await client.discourse.completeLink({
+        payload: payload.trim(),
+        nonce: nonce,
+        authToken: authToken,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to complete link");
-      }
-
-      const data = await response.json();
       onLinked(data);
     } catch (err: any) {
       onError(err.message || "Failed to complete link");

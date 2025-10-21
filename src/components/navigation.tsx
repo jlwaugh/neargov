@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import NearLogo from "/public/near-logo.svg";
 import { useNear } from "@/hooks/useNear";
+import { client } from "@/lib/orpc";
 
 export const Navigation = () => {
   const router = useRouter();
@@ -25,17 +26,10 @@ export const Navigation = () => {
 
       setCheckingDiscourse(true);
       try {
-        const response = await fetch("/api/discourse/linkage/get", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nearAccount: signedAccountId }),
+        const data = await client.discourse.getLinkage({
+          nearAccount: signedAccountId
         });
-        if (response.ok) {
-          const data = await response.json();
-          setIsDiscourseLinked(!!data);
-        } else {
-          setIsDiscourseLinked(false);
-        }
+        setIsDiscourseLinked(!!data);
       } catch (error) {
         // Plugin server not running - silently fail
         console.log("Discourse plugin server not available");
