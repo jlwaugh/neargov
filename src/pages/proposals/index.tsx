@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import ProposalCard from "@/components/ProposalCard";
 
 interface Post {
   id: number;
@@ -9,6 +9,10 @@ interface Post {
   username: string;
   topic_id: number;
   topic_slug: string;
+  reply_count?: number;
+  views?: number;
+  last_posted_at?: string;
+  near_wallet?: string;
 }
 
 export default function ProposalsList() {
@@ -22,8 +26,7 @@ export default function ProposalsList() {
 
   const fetchProposals = async () => {
     try {
-      // Use our API proxy instead of calling Discourse directly
-      const response = await fetch("/api/discourse/posts");
+      const response = await fetch("/api/discourse/latest");
 
       if (!response.ok) {
         throw new Error("Failed to fetch proposals");
@@ -71,35 +74,20 @@ export default function ProposalsList() {
           {!loading && !error && posts.length > 0 && (
             <div className="grid" style={{ gap: "1.5rem" }}>
               {posts.map((post) => (
-                <div key={post.id} className="card">
-                  <h3 style={{ marginBottom: "0.5rem", fontSize: "1.25rem" }}>
-                    {post.title}
-                  </h3>
-                  <p
-                    style={{
-                      color: "#6b7280",
-                      fontSize: "0.875rem",
-                      marginBottom: "1rem",
-                    }}
-                  >
-                    by {post.username} •{" "}
-                    {new Date(post.created_at).toLocaleDateString()}
-                  </p>
-                  {post.excerpt && (
-                    <p style={{ marginBottom: "1rem", color: "#4b5563" }}>
-                      {post.excerpt}
-                    </p>
-                  )}
-
-                  <a
-                    href={`https://discuss.near.vote/t/${post.topic_slug}/${post.topic_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary"
-                  >
-                    Read More →
-                  </a>
-                </div>
+                <ProposalCard
+                  key={post.id}
+                  id={post.id}
+                  title={post.title}
+                  excerpt={post.excerpt}
+                  created_at={post.created_at}
+                  username={post.username}
+                  topic_id={post.topic_id}
+                  topic_slug={post.topic_slug}
+                  reply_count={post.reply_count}
+                  views={post.views}
+                  last_posted_at={post.last_posted_at}
+                  near_wallet={post.near_wallet}
+                />
               ))}
             </div>
           )}

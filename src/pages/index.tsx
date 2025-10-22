@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useNear } from "@/hooks/useNear";
+import type { Evaluation } from "@/types/evaluation";
 import { ProposalForm } from "../components/ProposalForm";
 import { ScreeningResults } from "../components/ScreeningResults";
 import { ConnectDiscourse } from "../components/ConnectDiscourse";
@@ -14,7 +15,7 @@ export default function Main() {
   const [title, setTitle] = useState("");
   const [proposal, setProposal] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Evaluation | null>(null);
   const [error, setError] = useState("");
   const [linkedAccount, setLinkedAccount] = useState<any>(null);
 
@@ -79,53 +80,75 @@ export default function Main() {
             </div>
           )}
 
-          <>
-            {/* <ScreeningResults evaluation={result} /> */}
-
+          {result && (
             <>
-              {/* Show wallet warning here if not connected */}
-              {!signedAccountId && (
+              <ScreeningResults evaluation={result} />
+
+              {!result.overallPass && (
                 <div
-                  className="alert alert-error"
+                  className="alert alert-warning"
                   style={{ marginTop: "2rem" }}
                 >
-                  <span className="alert-icon">⚠</span>
-                  <div>
-                    <p className="alert-text" style={{ marginBottom: "1rem" }}>
-                      Please connect your NEAR wallet to publish your proposal
-                    </p>
-                    <button onClick={signIn} className="btn btn-primary">
-                      Connect NEAR Wallet
-                    </button>
-                  </div>
+                  <span className="alert-icon">ℹ️</span>
+                  <p className="alert-text">
+                    Your proposal didn't pass screening. Review the
+                    recommendations above, edit your proposal, and click "Screen
+                    Proposal" again when ready.
+                  </p>
                 </div>
               )}
 
-              {signedAccountId && wallet && (
+              {result.overallPass && (
                 <>
-                  {!linkedAccount && (
-                    <ConnectDiscourse
-                      signedAccountId={signedAccountId}
-                      wallet={wallet}
-                      onLinked={setLinkedAccount}
-                      onError={setError}
-                    />
+                  {/* Show wallet warning if not connected */}
+                  {!signedAccountId && (
+                    <div
+                      className="alert alert-error"
+                      style={{ marginTop: "2rem" }}
+                    >
+                      <span className="alert-icon">⚠</span>
+                      <div>
+                        <p
+                          className="alert-text"
+                          style={{ marginBottom: "1rem" }}
+                        >
+                          Please connect your NEAR wallet to publish your
+                          proposal
+                        </p>
+                        <button onClick={signIn} className="btn btn-primary">
+                          Connect NEAR Wallet
+                        </button>
+                      </div>
+                    </div>
                   )}
 
-                  {linkedAccount && (
-                    <PublishButton
-                      wallet={wallet}
-                      title={title}
-                      content={proposal}
-                      linkedAccount={linkedAccount}
-                      onPublished={() => {}}
-                      onError={setError}
-                    />
+                  {signedAccountId && wallet && (
+                    <>
+                      {!linkedAccount && (
+                        <ConnectDiscourse
+                          signedAccountId={signedAccountId}
+                          wallet={wallet}
+                          onLinked={setLinkedAccount}
+                          onError={setError}
+                        />
+                      )}
+
+                      {linkedAccount && (
+                        <PublishButton
+                          wallet={wallet}
+                          title={title}
+                          content={proposal}
+                          linkedAccount={linkedAccount}
+                          onPublished={() => {}}
+                          onError={setError}
+                        />
+                      )}
+                    </>
                   )}
                 </>
               )}
             </>
-          </>
+          )}
         </div>
 
         <footer className="footer">

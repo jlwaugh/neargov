@@ -16,7 +16,7 @@ interface Evaluation {
   consistent: EvaluationCriterion;
   genuine: EvaluationCriterion;
   compliant: EvaluationCriterion;
-  logicallyJustified: EvaluationCriterion;
+  justified: EvaluationCriterion;
   alignment: Alignment;
   overallPass: boolean;
   summary: string;
@@ -77,7 +77,7 @@ export const ProposalScreener = () => {
     consistent: "Consistent",
     genuine: "Genuine",
     compliant: "Compliant",
-    logicallyJustified: "Logically Justified",
+    justified: "Justified",
   };
 
   return (

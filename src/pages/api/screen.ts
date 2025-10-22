@@ -1,26 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-
-interface EvaluationCriterion {
-  pass: boolean;
-  reason: string;
-}
-
-interface Alignment {
-  score: "high" | "medium" | "low";
-  reason: string;
-}
-
-interface Evaluation {
-  complete: EvaluationCriterion;
-  legible: EvaluationCriterion;
-  consistent: EvaluationCriterion;
-  genuine: EvaluationCriterion;
-  compliant: EvaluationCriterion;
-  justified: EvaluationCriterion;
-  alignment: Alignment;
-  overallPass: boolean;
-  summary: string;
-}
+import type { Evaluation } from "@/types/evaluation";
 
 export default async function handler(
   req: NextApiRequest,
@@ -159,7 +138,7 @@ Evaluate the proposal against ALL six criteria:
 
    **Note:** Perfect formatting not required—focus on content standards.
 
-6. **Logically Justified:** Rationale connects to proposed actions:
+6. **Justified:** Rationale connects to proposed actions:
    - Situation (problem) logically leads to proposed Approach (solution)
    - Requested budget is justified by scope of work and timeline
    - Expected outcomes in Mission follow logically from proposed activities in Approach
