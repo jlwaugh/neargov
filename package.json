@@ -9,7 +9,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:drop": "drizzle-kit drop"
   },
   "dependencies": {
     "@hot-labs/near-connect": "^0.6.2",
@@ -20,9 +25,11 @@
     "@orpc/contract": "^1.10.0",
     "@orpc/server": "^1.10.0",
     "@walletconnect/sign-client": "^2.21.9",
+    "drizzle-orm": "^0.44.6",
     "every-plugin": "^0.3.1",
     "near-sign-verify": "^0.4.3",
     "next": "^15",
+    "postgres": "^3.4.7",
     "react": "^18",
     "react-dom": "^18",
     "undici": "^7.16.0",
@@ -33,6 +40,7 @@
     "@types/node": "^24.7.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
+    "drizzle-kit": "^0.31.5",
     "encoding": "^0.1.13",
     "eslint": "^9.16.0",
     "eslint-config-next": "15.0.3",

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import VersionHistory from "@/components/VersionHistory";
+import { ScreeningBadge } from "@/components/ScreeningBadge";
+import { ScreeningButton } from "@/components/ScreeningButton";
+import { useNear } from "@/hooks/useNear";
 
 interface ProposalDetail {
   id: number;
@@ -34,6 +37,9 @@ export default function ProposalDetail() {
   const [proposal, setProposal] = useState<ProposalDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Get wallet and account from useNear hook
+  const { wallet, signedAccountId } = useNear();
 
   useEffect(() => {
     if (id) {
@@ -127,6 +133,30 @@ export default function ProposalDetail() {
           <h1 className="page-title" style={{ marginBottom: "2rem" }}>
             {proposal.title}
           </h1>
+
+          {/* AI Screening Badge - Shows if screening results exist */}
+          <ScreeningBadge topicId={id as string} />
+
+          {/* Screen Proposal Button - For proposals not yet screened */}
+          {/* Only show if wallet is connected and we have an account */}
+          {wallet && signedAccountId && (
+            <ScreeningButton
+              topicId={id as string}
+              title={proposal.title}
+              content={proposal.content}
+              nearAccount={signedAccountId}
+              wallet={wallet}
+            />
+          )}
+
+          {/* Show message if wallet not connected */}
+          {!wallet && !signedAccountId && (
+            <div className="card" style={{ marginBottom: "2rem" }}>
+              <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                💡 Connect your NEAR wallet to screen this proposal with AI
+              </p>
+            </div>
+          )}
 
           {/* Metadata Section */}
           <div

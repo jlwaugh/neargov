@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { client } from "@/lib/orpc";
+import type { Evaluation } from "@/types/evaluation";
 
 interface PublishButtonProps {
   wallet: any;
   title: string;
   content: string;
   linkedAccount: { nearAccount: string; discourseUsername: string };
-  onPublished: (result: { postUrl: string }) => void;
+  evaluation?: Evaluation;
+  onPublished: (result: { postUrl: string; topicId: string }) => void;
   onError: (error: string) => void;
 }
 
@@ -15,6 +17,7 @@ export const PublishButton = ({
   title,
   content,
   linkedAccount,
+  evaluation,
   onPublished,
   onError,
 }: PublishButtonProps) => {
@@ -41,7 +44,8 @@ export const PublishButton = ({
         },
       };
 
-      const authToken = await sign("Create Discourse post", {
+      // Sign message for Discourse post creation
+      const discourseAuthToken = await sign("Create Discourse post", {
         signer: walletWrapper,
         recipient: "social.near",
       });
@@ -55,18 +59,65 @@ export const PublishButton = ({
 
 `;
 
+      // Publish to Discourse
       const data = await client.discourse.createPost({
-        authToken: authToken,
+        authToken: discourseAuthToken,
         title: title,
         raw: badge + content,
         category: 5,
       });
 
       if (data.success && data.postUrl) {
+        // Extract topic ID from post URL
+        const topicIdMatch = data.postUrl.match(/\/t\/[^\/]+\/(\d+)/);
+        const topicId = topicIdMatch ? topicIdMatch[1] : null;
+
+        if (!topicId) {
+          throw new Error("Failed to extract topic ID from post URL");
+        }
+
+        // Save screening results to database with authentication
+        if (evaluation) {
+          try {
+            // Sign a new message specifically for saving the analysis
+            const saveAuthToken = await sign(`Publish proposal ${topicId}`, {
+              signer: walletWrapper,
+              recipient: "social.near",
+            });
+
+            const saveResponse = await fetch(`/api/saveAnalysis/${topicId}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${saveAuthToken}`,
+              },
+              body: JSON.stringify({
+                title,
+                content,
+                evaluatorAccount: linkedAccount.nearAccount,
+              }),
+            });
+
+            if (!saveResponse.ok) {
+              const errorData = await saveResponse.json();
+              console.error("Failed to save screening results:", errorData);
+              // Don't fail the whole publish if screening save fails
+              // The proposal is already published to Discourse
+            } else {
+              const saveData = await saveResponse.json();
+              console.log("Screening results saved:", saveData);
+            }
+          } catch (saveError) {
+            console.error("Error saving screening results:", saveError);
+            // Don't fail the whole publish if screening save fails
+          }
+        }
+
         setPublished(true);
         setPostUrl(data.postUrl);
-        onPublished({ postUrl: data.postUrl });
+        onPublished({ postUrl: data.postUrl, topicId });
 
+        // Open Discourse post in new tab after a short delay
         setTimeout(() => {
           window.open(data.postUrl, "_blank");
         }, 2000);
@@ -87,7 +138,8 @@ export const PublishButton = ({
             <h2 className="status-title">Published!</h2>
           </div>
           <p className="status-text">
-            Your AI-screened proposal has been published to Discourse
+            Your AI-screened proposal has been published to Discourse and saved
+            to the database
           </p>
 
           <a
