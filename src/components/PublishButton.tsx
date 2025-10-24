@@ -29,6 +29,8 @@ export const PublishButton = ({
     setPublishing(true);
     onError("");
 
+    console.log("🔍 Publishing with evaluation:", evaluation);
+
     try {
       const { sign } = await import("near-sign-verify");
       const { base58 } = await import("@scure/base");
@@ -76,7 +78,7 @@ export const PublishButton = ({
           throw new Error("Failed to extract topic ID from post URL");
         }
 
-        // Save screening results to database with authentication
+        // Save screening results to database
         if (evaluation) {
           try {
             // Sign a new message specifically for saving the analysis
@@ -100,17 +102,16 @@ export const PublishButton = ({
 
             if (!saveResponse.ok) {
               const errorData = await saveResponse.json();
-              console.error("Failed to save screening results:", errorData);
+              console.error("❌ Failed to save screening results:", errorData);
               // Don't fail the whole publish if screening save fails
-              // The proposal is already published to Discourse
             } else {
               const saveData = await saveResponse.json();
-              console.log("Screening results saved:", saveData);
             }
           } catch (saveError) {
-            console.error("Error saving screening results:", saveError);
-            // Don't fail the whole publish if screening save fails
+            console.error("❌ Error saving proposal:", saveError);
           }
+        } else {
+          console.log("⚠️ No evaluation to save");
         }
 
         setPublished(true);
@@ -123,6 +124,7 @@ export const PublishButton = ({
         }, 2000);
       }
     } catch (err: any) {
+      console.error("❌ Publish error:", err);
       onError(err.message || "Failed to publish to Discourse");
     } finally {
       setPublishing(false);

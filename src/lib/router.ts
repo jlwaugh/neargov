@@ -12,7 +12,7 @@ const runtime = createPluginRuntime<AppBindings>({
   registry: {
     "@neargov/discourse-plugin": {
       remoteUrl:
-        "https://jlwaugh-15-neargov-discourse-plugin-discourse-plu-c2dc3e1cc-ze.zephyrcloud.app/remoteEntry.js",
+        "https://jlwaugh-16-neargov-discourse-plugin-discourse-plu-7537b5002-ze.zephyrcloud.app/remoteEntry.js",
     },
   },
   secrets: {

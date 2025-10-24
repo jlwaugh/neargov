@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Evaluation } from "@/types/evaluation";
 
 interface ScreeningButtonProps {
@@ -7,6 +7,7 @@ interface ScreeningButtonProps {
   content: string;
   nearAccount: string;
   wallet: any;
+  onScreeningComplete?: () => void;
 }
 
 export function ScreeningButton({
@@ -15,30 +16,11 @@ export function ScreeningButton({
   content,
   nearAccount,
   wallet,
+  onScreeningComplete,
 }: ScreeningButtonProps) {
   const [screening, setScreening] = useState(false);
   const [result, setResult] = useState<Evaluation | null>(null);
   const [error, setError] = useState("");
-  const [existingScreening, setExistingScreening] = useState<boolean | null>(
-    null
-  );
-
-  // Check if screening already exists
-  useEffect(() => {
-    const checkExisting = async () => {
-      try {
-        const response = await fetch(`/api/getAnalysis/${topicId}`);
-        setExistingScreening(response.ok);
-      } catch {
-        setExistingScreening(false);
-      }
-    };
-    checkExisting();
-  }, [topicId]);
-
-  // Don't show button if screening already exists
-  if (existingScreening === null) return null; // Loading
-  if (existingScreening) return null; // Already screened
 
   const stripHtml = (html: string): string => {
     if (typeof document !== "undefined") {
@@ -122,6 +104,11 @@ export function ScreeningButton({
       setResult(saveData.evaluation);
 
       console.log("✓ Screening completed and saved!");
+
+      // Notify parent to refetch screening data
+      if (onScreeningComplete) {
+        onScreeningComplete();
+      }
 
       // Refresh page to show badge after a short delay
       setTimeout(() => {

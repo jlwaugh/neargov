@@ -5,6 +5,7 @@ import VersionHistory from "@/components/VersionHistory";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
 import { ScreeningButton } from "@/components/ScreeningButton";
 import { useNear } from "@/hooks/useNear";
+import type { Evaluation } from "@/types/evaluation";
 
 interface ProposalDetail {
   id: number;
@@ -31,12 +32,21 @@ interface Reply {
   post_number: number;
 }
 
+interface ScreeningData {
+  evaluation: Evaluation;
+  title: string;
+  nearAccount: string;
+  timestamp: string;
+}
+
 export default function ProposalDetail() {
   const router = useRouter();
   const { id } = router.query;
   const [proposal, setProposal] = useState<ProposalDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [screening, setScreening] = useState<ScreeningData | null>(null);
+  const [screeningChecked, setScreeningChecked] = useState(false);
 
   // Get wallet and account from useNear hook
   const { wallet, signedAccountId } = useNear();
@@ -44,6 +54,7 @@ export default function ProposalDetail() {
   useEffect(() => {
     if (id) {
       fetchProposal(id as string);
+      fetchScreening(id as string);
     }
   }, [id]);
 
@@ -61,6 +72,26 @@ export default function ProposalDetail() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchScreening = async (topicId: string) => {
+    try {
+      const response = await fetch(`/api/getAnalysis/${topicId}`);
+
+      if (response.status === 404) {
+        // No screening exists - this is expected
+        setScreening(null);
+      } else if (response.ok) {
+        const data = await response.json();
+        setScreening(data);
+      } else {
+        console.error("Unexpected error fetching screening:", response.status);
+      }
+    } catch (error) {
+      console.error("Failed to fetch screening:", error);
+    } finally {
+      setScreeningChecked(true);
     }
   };
 
@@ -135,22 +166,25 @@ export default function ProposalDetail() {
           </h1>
 
           {/* AI Screening Badge - Shows if screening results exist */}
-          <ScreeningBadge topicId={id as string} />
+          {screeningChecked && screening && (
+            <ScreeningBadge screening={screening} />
+          )}
 
           {/* Screen Proposal Button - For proposals not yet screened */}
-          {/* Only show if wallet is connected and we have an account */}
-          {wallet && signedAccountId && (
+          {/* Only show if wallet is connected, we have an account, and no screening exists */}
+          {screeningChecked && !screening && wallet && signedAccountId && (
             <ScreeningButton
               topicId={id as string}
               title={proposal.title}
               content={proposal.content}
               nearAccount={signedAccountId}
               wallet={wallet}
+              onScreeningComplete={() => fetchScreening(id as string)}
             />
           )}
 
           {/* Show message if wallet not connected */}
-          {!wallet && !signedAccountId && (
+          {screeningChecked && !screening && (!wallet || !signedAccountId) && (
             <div className="card" style={{ marginBottom: "2rem" }}>
               <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
                 💡 Connect your NEAR wallet to screen this proposal with AI
@@ -327,7 +361,7 @@ export default function ProposalDetail() {
 
           {/* Replies Section */}
           {proposal.replies && proposal.replies.length > 0 && (
-            <div className="card">
+            <div style={{ marginTop: "2rem" }} className="card">
               <h2 style={{ fontSize: "1.125rem", marginBottom: "1.5rem" }}>
                 Replies ({proposal.replies.length})
               </h2>

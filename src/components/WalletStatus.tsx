@@ -10,16 +10,21 @@ export const WalletStatus = ({
   showWarningIfNotConnected = true,
 }: WalletStatusProps) => {
   if (loading) {
-    return null;
+    return (
+      <div className="feature-card" style={{ marginBottom: "1.5rem" }}>
+        <div className="feature-icon">⏳</div>
+        <div>
+          <h3 className="feature-title">Loading Wallet...</h3>
+        </div>
+      </div>
+    );
   }
 
   if (!signedAccountId && showWarningIfNotConnected) {
     return (
       <div className="alert alert-error" style={{ marginBottom: "1.5rem" }}>
         <span className="alert-icon">⚠</span>
-        <p className="alert-text">
-          Please connect your NEAR wallet using the button in the top right
-        </p>
+        <p className="alert-text">Please connect your NEAR account.</p>
       </div>
     );
   }

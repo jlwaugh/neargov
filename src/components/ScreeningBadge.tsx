@@ -1,42 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Evaluation } from "@/types/evaluation";
 
 interface ScreeningBadgeProps {
-  topicId: string;
-}
-
-export const ScreeningBadge = ({ topicId }: ScreeningBadgeProps) => {
-  const [screening, setScreening] = useState<{
+  screening: {
     evaluation: Evaluation;
     title: string;
     nearAccount: string;
     timestamp: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showDetails, setShowDetails] = useState(false);
-
-  useEffect(() => {
-    fetchScreeningResults();
-  }, [topicId]);
-
-  const fetchScreeningResults = async () => {
-    try {
-      const response = await fetch(`/api/getAnalysis/${topicId}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        setScreening(data);
-      }
-    } catch (error) {
-      console.log("No screening results available");
-    } finally {
-      setLoading(false);
-    }
   };
+}
 
-  if (loading || !screening) {
-    return null;
-  }
+export const ScreeningBadge = ({ screening }: ScreeningBadgeProps) => {
+  const [showDetails, setShowDetails] = useState(false);
 
   const { evaluation, nearAccount, timestamp } = screening;
   const passed = evaluation.overallPass;

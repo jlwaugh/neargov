@@ -102,7 +102,9 @@ export default async function handler(
             username: creatorUser?.username || "unknown",
             topic_id: topic.id,
             topic_slug: topic.slug,
-            reply_count: topic.reply_count || 0,
+            reply_count: topic.posts_count
+              ? topic.posts_count - 1
+              : topic.reply_count || 0,
             views: topic.views || 0,
             last_posted_at: topic.last_posted_at || topic.created_at,
             like_count: topic.like_count || 0,

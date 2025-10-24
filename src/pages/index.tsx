@@ -7,7 +7,6 @@ import { ProposalForm } from "../components/ProposalForm";
 import { ScreeningResults } from "../components/ScreeningResults";
 import { ConnectDiscourse } from "../components/ConnectDiscourse";
 import { PublishButton } from "../components/PublishButton";
-import { WalletStatus } from "../components/WalletStatus";
 
 export default function Main() {
   const { signedAccountId, wallet, loading: walletLoading, signIn } = useNear();
@@ -101,7 +100,7 @@ export default function Main() {
               {result.overallPass && (
                 <>
                   {/* Show wallet warning if not connected */}
-                  {!signedAccountId && (
+                  {!walletLoading && !signedAccountId && (
                     <div
                       className="alert alert-error"
                       style={{ marginTop: "2rem" }}
@@ -139,6 +138,7 @@ export default function Main() {
                           title={title}
                           content={proposal}
                           linkedAccount={linkedAccount}
+                          evaluation={result}
                           onPublished={() => {}}
                           onError={setError}
                         />

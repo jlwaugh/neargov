@@ -24,15 +24,20 @@ export const Navigation = () => {
         return;
       }
 
+      // Extra validation
+      if (typeof signedAccountId !== "string" || signedAccountId.length === 0) {
+        setIsDiscourseLinked(false);
+        return;
+      }
+
       setCheckingDiscourse(true);
+
       try {
         const data = await client.discourse.getLinkage({
-          nearAccount: signedAccountId
+          nearAccount: signedAccountId,
         });
         setIsDiscourseLinked(!!data);
-      } catch (error) {
-        // Plugin server not running - silently fail
-        console.log("Discourse plugin server not available");
+      } catch (error: any) {
         setIsDiscourseLinked(false);
       } finally {
         setCheckingDiscourse(false);
