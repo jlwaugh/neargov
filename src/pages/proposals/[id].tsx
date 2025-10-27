@@ -4,6 +4,7 @@ import Link from "next/link";
 import VersionHistory from "@/components/VersionHistory";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
 import { ScreeningButton } from "@/components/ScreeningButton";
+import { DiscussionSummary } from "@/components/DiscussionSummary";
 import { useNear } from "@/hooks/useNear";
 import type { Evaluation } from "@/types/evaluation";
 
@@ -353,6 +354,16 @@ export default function ProposalDetail() {
               dangerouslySetInnerHTML={{ __html: proposal.content }}
             />
           </div>
+
+          {/* Discussion Summary - Only show if there are replies */}
+          {proposal.reply_count > 0 && (
+            <div style={{ marginTop: "2rem" }}>
+              <DiscussionSummary
+                proposalId={id as string}
+                replyCount={proposal.reply_count}
+              />
+            </div>
+          )}
 
           {/* Version History */}
           <div style={{ marginTop: "2rem" }}>

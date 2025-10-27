@@ -471,3 +471,51 @@ textarea {
   line-height: 1.6;
   margin: 0;
 }
+
+.card h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  color: #1f2937;
+}
+
+.card h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #1f2937;
+}
+
+.card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #374151;
+}
+
+.card ul,
+.card ol {
+  margin-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.card li {
+  margin-bottom: 0.25rem;
+}
+
+.card p {
+  margin-bottom: 0.75rem;
+}
+
+.card strong {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.card em {
+  font-style: italic;
+}
