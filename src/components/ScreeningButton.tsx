@@ -7,6 +7,7 @@ interface ScreeningButtonProps {
   content: string;
   nearAccount: string;
   wallet: any;
+  revisionNumber: number;
   onScreeningComplete?: () => void;
 }
 
@@ -16,6 +17,7 @@ export function ScreeningButton({
   content,
   nearAccount,
   wallet,
+  revisionNumber,
   onScreeningComplete,
 }: ScreeningButtonProps) {
   const [screening, setScreening] = useState(false);
@@ -80,6 +82,7 @@ export function ScreeningButton({
           title,
           content: stripHtml(content),
           evaluatorAccount: nearAccount,
+          revisionNumber,
         }),
       });
 
@@ -171,7 +174,8 @@ export function ScreeningButton({
       <p
         style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "1rem" }}
       >
-        Screen this proposal against NEAR governance criteria using AI.
+        Screen this proposal (version {revisionNumber}) against NEAR governance
+        criteria using AI.
         {!wallet && (
           <span
             style={{ display: "block", marginTop: "0.5rem", color: "#ef4444" }}

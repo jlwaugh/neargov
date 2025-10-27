@@ -38,6 +38,7 @@ interface ScreeningData {
   title: string;
   nearAccount: string;
   timestamp: string;
+  revisionNumber: number;
 }
 
 export default function ProposalDetail() {
@@ -48,6 +49,7 @@ export default function ProposalDetail() {
   const [error, setError] = useState("");
   const [screening, setScreening] = useState<ScreeningData | null>(null);
   const [screeningChecked, setScreeningChecked] = useState(false);
+  const [currentRevision, setCurrentRevision] = useState<number>(1);
 
   // Get wallet and account from useNear hook
   const { wallet, signedAccountId } = useNear();
@@ -55,7 +57,6 @@ export default function ProposalDetail() {
   useEffect(() => {
     if (id) {
       fetchProposal(id as string);
-      fetchScreening(id as string);
     }
   }, [id]);
 
@@ -69,6 +70,24 @@ export default function ProposalDetail() {
 
       const data = await response.json();
       setProposal(data);
+
+      // Fetch current revision number from Discourse
+      const revisionsResponse = await fetch(
+        `/api/discourse/proposals/${proposalId}/revisions`
+      );
+      if (revisionsResponse.ok) {
+        const revisionsData = await revisionsResponse.json();
+        // Use current_version from the API response
+        const latestRevision = revisionsData.current_version || 1;
+        setCurrentRevision(latestRevision);
+
+        // Now fetch screening for the current revision
+        fetchScreening(proposalId, latestRevision);
+      } else {
+        // Fallback to revision 1 if we can't get revisions
+        setCurrentRevision(1);
+        fetchScreening(proposalId, 1);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -76,12 +95,15 @@ export default function ProposalDetail() {
     }
   };
 
-  const fetchScreening = async (topicId: string) => {
+  const fetchScreening = async (topicId: string, revisionNumber: number) => {
     try {
-      const response = await fetch(`/api/getAnalysis/${topicId}`);
+      // Fetch screening for the specific revision
+      const response = await fetch(
+        `/api/getAnalysis/${topicId}?revisionNumber=${revisionNumber}`
+      );
 
       if (response.status === 404) {
-        // No screening exists - this is expected
+        // No screening exists for this revision
         setScreening(null);
       } else if (response.ok) {
         const data = await response.json();
@@ -166,32 +188,39 @@ export default function ProposalDetail() {
             {proposal.title}
           </h1>
 
-          {/* AI Screening Badge - Shows if screening results exist */}
-          {screeningChecked && screening && (
-            <ScreeningBadge screening={screening} />
-          )}
+          {/* AI Screening Badge - Shows if screening exists for CURRENT revision */}
+          {screeningChecked &&
+            screening &&
+            screening.revisionNumber === currentRevision && (
+              <ScreeningBadge screening={screening} />
+            )}
 
-          {/* Screen Proposal Button - For proposals not yet screened */}
-          {/* Only show if wallet is connected, we have an account, and no screening exists */}
-          {screeningChecked && !screening && wallet && signedAccountId && (
-            <ScreeningButton
-              topicId={id as string}
-              title={proposal.title}
-              content={proposal.content}
-              nearAccount={signedAccountId}
-              wallet={wallet}
-              onScreeningComplete={() => fetchScreening(id as string)}
-            />
-          )}
+          {/* Screen Proposal Button - Show if no screening for current revision */}
+          {screeningChecked &&
+            (!screening || screening.revisionNumber !== currentRevision) &&
+            wallet &&
+            signedAccountId && (
+              <ScreeningButton
+                topicId={id as string}
+                title={proposal.title}
+                content={proposal.content}
+                nearAccount={signedAccountId}
+                wallet={wallet}
+                revisionNumber={currentRevision}
+                onScreeningComplete={() => fetchProposal(id as string)}
+              />
+            )}
 
           {/* Show message if wallet not connected */}
-          {screeningChecked && !screening && (!wallet || !signedAccountId) && (
-            <div className="card" style={{ marginBottom: "2rem" }}>
-              <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                💡 Connect your NEAR wallet to screen this proposal with AI
-              </p>
-            </div>
-          )}
+          {screeningChecked &&
+            (!screening || screening.revisionNumber !== currentRevision) &&
+            (!wallet || !signedAccountId) && (
+              <div className="card" style={{ marginBottom: "2rem" }}>
+                <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                  💡 Connect your NEAR wallet to screen this proposal with AI
+                </p>
+              </div>
+            )}
 
           {/* Metadata Section */}
           <div

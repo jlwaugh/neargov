@@ -97,6 +97,7 @@ export const PublishButton = ({
                 title,
                 content,
                 evaluatorAccount: linkedAccount.nearAccount,
+                revisionNumber: 1,
               }),
             });
 

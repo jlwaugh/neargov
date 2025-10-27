@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Evaluation } from "@/types/evaluation";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
+import { reconstructRevisionContent } from "@/lib/revisionContentUtils";
 
 interface Revision {
   version: number;
@@ -152,6 +153,15 @@ export default function VersionHistory({
         throw new Error("NEAR account not found. Please connect your wallet.");
       }
 
+      // Reconstruct the content for this specific revision
+      const { content: revisionContent, title: revisionTitle } =
+        reconstructRevisionContent(content, title, revisions, revisionNumber);
+
+      console.log(`Screening revision ${revisionNumber}:`, {
+        title: revisionTitle,
+        contentPreview: revisionContent.substring(0, 100),
+      });
+
       // Generate auth token for saving screening
       const { sign } = await import("near-sign-verify");
       const { base58 } = await import("@scure/base");
@@ -183,8 +193,8 @@ export default function VersionHistory({
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          title,
-          content: stripHtml(content),
+          title: revisionTitle,
+          content: stripHtml(revisionContent),
           evaluatorAccount: nearAccount,
           revisionNumber, // Pass the specific revision number
         }),
@@ -384,9 +394,15 @@ export default function VersionHistory({
         </div>
       )}
 
-      {showHistory && revisions.length === 0 && !loading && (
-        <p style={{ color: "#6b7280", marginTop: "0.5rem" }}>
-          No edit history available for this proposal.
+      {showHistory && revisions.length === 0 && (
+        <p
+          style={{
+            color: "#6b7280",
+            marginTop: "1rem",
+            fontSize: "0.875rem",
+          }}
+        >
+          No edit history available - this is the original version.
         </p>
       )}
 
@@ -395,6 +411,7 @@ export default function VersionHistory({
           <div
             style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
           >
+            {/* Revisions (newest first) */}
             {revisions.map((revision, index) => (
               <div
                 key={revision.version}
@@ -499,6 +516,44 @@ export default function VersionHistory({
                 {renderScreeningButton(revision.version)}
               </div>
             ))}
+
+            {/* Original Version Card (at bottom) */}
+            <div
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: "0.5rem",
+                padding: "1rem",
+                backgroundColor: "white",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: "1rem" }}>
+                      Original Version (v1)
+                    </strong>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#6b7280",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  Initial proposal submission
+                </div>
+              </div>
+              {/* Screening button for original version */}
+              {renderScreeningButton(1)}
+            </div>
           </div>
         </div>
       )}
