@@ -2,7 +2,7 @@
 
 import { db } from "./src/lib/db";
 import { screeningResults } from "./src/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import type { Evaluation } from "./src/types/evaluation";
 
 const colors = {
@@ -23,6 +23,7 @@ const log = {
 
 // Test data
 const testTopicId = "test-topic-12345";
+const testRevisionNumber = 1;
 const testEvaluation: Evaluation = {
   complete: { pass: true, reason: "Test complete" },
   legible: { pass: true, reason: "Test legible" },
@@ -57,10 +58,11 @@ async function testConnection() {
 }
 
 async function testInsert() {
-  log.info("Testing INSERT operation...");
+  log.info("Testing INSERT operation (revision 1)...");
   try {
     await db.insert(screeningResults).values({
       topicId: testTopicId,
+      revisionNumber: testRevisionNumber,
       evaluation: testEvaluation,
       title: "Test Proposal",
       nearAccount: "test.near",
@@ -79,7 +81,12 @@ async function testSelect() {
     const result = await db
       .select()
       .from(screeningResults)
-      .where(eq(screeningResults.topicId, testTopicId))
+      .where(
+        and(
+          eq(screeningResults.topicId, testTopicId),
+          eq(screeningResults.revisionNumber, testRevisionNumber)
+        )
+      )
       .limit(1);
 
     if (!result || result.length === 0) {
@@ -90,6 +97,7 @@ async function testSelect() {
     const screening = result[0];
     log.success("Select successful!");
     console.log(`   Topic ID: ${screening.topicId}`);
+    console.log(`   Revision: ${screening.revisionNumber}`);
     console.log(`   Title: ${screening.title}`);
     console.log(`   Account: ${screening.nearAccount}`);
     console.log(`   Passed: ${screening.evaluation.overallPass}`);
@@ -101,12 +109,73 @@ async function testSelect() {
   }
 }
 
-async function testDuplicatePrevention() {
-  log.info("Testing duplicate prevention (primary key constraint)...");
+async function testMultipleRevisions() {
+  log.info("Testing multiple revisions for same topic...");
   try {
-    // Try to insert the same topicId again
+    // Insert revision 2
     await db.insert(screeningResults).values({
       topicId: testTopicId,
+      revisionNumber: 2,
+      evaluation: testEvaluation,
+      title: "Test Proposal (Edited)",
+      nearAccount: "test.near",
+    });
+
+    // Insert revision 3
+    await db.insert(screeningResults).values({
+      topicId: testTopicId,
+      revisionNumber: 3,
+      evaluation: { ...testEvaluation, overallPass: false },
+      title: "Test Proposal (Edited Again)",
+      nearAccount: "test.near",
+    });
+
+    // Query all revisions
+    const allRevisions = await db
+      .select()
+      .from(screeningResults)
+      .where(eq(screeningResults.topicId, testTopicId))
+      .orderBy(screeningResults.revisionNumber);
+
+    if (allRevisions.length === 3) {
+      log.success(
+        `Multiple revisions working! Found ${allRevisions.length} revisions`
+      );
+      console.log(
+        `   Revision 1: ${
+          allRevisions[0].evaluation.overallPass ? "Pass" : "Fail"
+        }`
+      );
+      console.log(
+        `   Revision 2: ${
+          allRevisions[1].evaluation.overallPass ? "Pass" : "Fail"
+        }`
+      );
+      console.log(
+        `   Revision 3: ${
+          allRevisions[2].evaluation.overallPass ? "Pass" : "Fail"
+        }`
+      );
+      return true;
+    } else {
+      log.error(`Expected 3 revisions, got ${allRevisions.length}`);
+      return false;
+    }
+  } catch (error) {
+    log.error(`Multiple revisions test failed: ${error}`);
+    return false;
+  }
+}
+
+async function testDuplicatePrevention() {
+  log.info(
+    "Testing duplicate prevention (composite primary key constraint)..."
+  );
+  try {
+    // Try to insert the same topicId + revisionNumber again
+    await db.insert(screeningResults).values({
+      topicId: testTopicId,
+      revisionNumber: testRevisionNumber,
       evaluation: testEvaluation,
       title: "Duplicate Test Proposal",
       nearAccount: "test.near",
@@ -126,16 +195,49 @@ async function testDuplicatePrevention() {
       errorCode === "23505" ||
       errorMessage.includes("duplicate key") ||
       errorMessage.includes("unique constraint") ||
-      errorMessage.includes("topic_id")
+      errorMessage.includes("topic_id") ||
+      errorMessage.includes("revision_number")
     ) {
       log.success(
-        "Duplicate prevention working! Primary key constraint enforced"
+        "Duplicate prevention working! Composite primary key constraint enforced"
       );
       return true;
     } else {
       log.error(`Unexpected error: ${errorMessage}`);
       return false;
     }
+  }
+}
+
+async function testLatestRevisionQuery() {
+  log.info("Testing latest revision query...");
+  try {
+    // Get latest revision for the test topic
+    const result = await db
+      .select()
+      .from(screeningResults)
+      .where(eq(screeningResults.topicId, testTopicId))
+      .orderBy(sql`${screeningResults.revisionNumber} DESC`)
+      .limit(1);
+
+    if (result.length === 0) {
+      log.error("Latest revision query failed: No data returned");
+      return false;
+    }
+
+    const latestRevision = result[0].revisionNumber;
+    if (latestRevision === 3) {
+      log.success(
+        `Latest revision query successful! Latest is revision ${latestRevision}`
+      );
+      return true;
+    } else {
+      log.error(`Expected revision 3, got ${latestRevision}`);
+      return false;
+    }
+  } catch (error) {
+    log.error(`Latest revision query failed: ${error}`);
+    return false;
   }
 }
 
@@ -173,14 +275,16 @@ async function testCleanup() {
 }
 
 async function runAllTests() {
-  console.log("\n🧪 Drizzle Database Test Suite\n");
+  console.log("\n🧪 Drizzle Database Test Suite (Multi-Revision)\n");
   console.log("=".repeat(50));
 
   const results = {
     connection: await testConnection(),
     insert: false,
     select: false,
+    multipleRevisions: false,
     duplicatePrevention: false,
+    latestRevisionQuery: false,
     jsonQuery: false,
     cleanup: false,
   };
@@ -199,7 +303,11 @@ async function runAllTests() {
   console.log("");
   results.select = await testSelect();
   console.log("");
+  results.multipleRevisions = await testMultipleRevisions();
+  console.log("");
   results.duplicatePrevention = await testDuplicatePrevention();
+  console.log("");
+  results.latestRevisionQuery = await testLatestRevisionQuery();
   console.log("");
   results.jsonQuery = await testJsonQuery();
   console.log("");
@@ -220,7 +328,7 @@ async function runAllTests() {
 
   if (passed === total) {
     console.log(
-      `\n${colors.green}🎉 All tests passed! Database is ready.${colors.reset}\n`
+      `\n${colors.green}🎉 All tests passed! Multi-revision database is ready.${colors.reset}\n`
     );
     process.exit(0);
   } else {

@@ -2,21 +2,25 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { db } from "@/lib/db";
 import { buildScreeningPrompt } from "@/lib/screeningPrompt";
 import { screeningResults } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { Evaluation } from "@/types/evaluation";
+import { getCurrentTopicVersion } from "@/lib/db/revision-utils";
 
 /**
  * POST /api/saveAnalysis/[topicId]
  *
  * Screens a proposal and saves the result (pass or fail) to the database.
+ * Now supports screening specific revisions of proposals.
+ *
  * Used for:
  * 1. Saving screening after publishing to Discourse (from PublishButton)
  * 2. Retroactive evaluation of existing proposals (from ScreenProposalButton)
+ * 3. Screening specific revisions (from VersionHistory)
  *
  * Security:
  * - Requires NEP-413 auth token
  * - Re-screens content server-side (doesn't trust client evaluation)
- * - Prevents duplicate screenings per topicId (via primary key + error handling)
+ * - Prevents duplicate screenings per (topicId, revisionNumber) via composite primary key
  * - Always saves results for transparency (pass or fail)
  */
 export default async function handler(
@@ -31,10 +35,11 @@ export default async function handler(
   const topicIdParam = req.query.topicId;
   const topicId = Array.isArray(topicIdParam) ? topicIdParam[0] : topicIdParam;
 
-  const { title, content, evaluatorAccount } = req.body as {
+  const { title, content, evaluatorAccount, revisionNumber } = req.body as {
     title?: string;
     content?: string;
     evaluatorAccount?: string; // Optional - if provided, must match signer
+    revisionNumber?: number; // Optional - specific revision to screen
     authToken?: string; // Optional fallback if not using Authorization header
   };
 
@@ -47,6 +52,17 @@ export default async function handler(
   }
   if (!content?.trim()) {
     return res.status(400).json({ error: "Content is required" });
+  }
+
+  // Validate revisionNumber if provided
+  if (
+    revisionNumber !== undefined &&
+    (!Number.isInteger(revisionNumber) || revisionNumber < 1)
+  ) {
+    return res.status(400).json({
+      error: "Invalid revision number",
+      message: "revisionNumber must be a positive integer",
+    });
   }
 
   // Content length limits
@@ -111,17 +127,41 @@ export default async function handler(
       });
     }
 
-    // Check for existing screening (optimization to avoid AI call if already exists)
+    // Determine which revision to screen
+    let versionToScreen: number;
+
+    if (revisionNumber !== undefined) {
+      // Specific revision requested
+      versionToScreen = revisionNumber;
+    } else {
+      // No revision specified - get current version from Discourse
+      try {
+        versionToScreen = await getCurrentTopicVersion(topicId);
+      } catch (error) {
+        console.warn(
+          "Could not fetch current version from Discourse, defaulting to 1"
+        );
+        versionToScreen = 1;
+      }
+    }
+
+    // Check for existing screening for this specific revision
     const existing = await db
       .select()
       .from(screeningResults)
-      .where(eq(screeningResults.topicId, topicId))
+      .where(
+        and(
+          eq(screeningResults.topicId, topicId),
+          eq(screeningResults.revisionNumber, versionToScreen)
+        )
+      )
       .limit(1);
 
     if (existing?.length) {
       return res.status(409).json({
         error: "Already evaluated",
-        message: "This proposal has already been evaluated",
+        message: `Revision ${versionToScreen} of this proposal has already been evaluated`,
+        version: versionToScreen,
       });
     }
 
@@ -171,16 +211,17 @@ export default async function handler(
       throw new Error("Invalid evaluation structure");
     }
 
-    // Save to database (regardless of pass/fail for transparency)
+    // Save to database with revision number
     try {
       await db.insert(screeningResults).values({
         topicId,
+        revisionNumber: versionToScreen,
         evaluation,
         title: sanitizedTitle,
         nearAccount: signerAccountId,
       });
     } catch (dbError: any) {
-      // Handle duplicate key error (primary key violation)
+      // Handle duplicate key error (composite primary key violation)
       // Error code 23505 = PostgreSQL unique_violation
       if (
         dbError.code === "23505" ||
@@ -188,7 +229,8 @@ export default async function handler(
       ) {
         return res.status(409).json({
           error: "Already evaluated",
-          message: "This proposal has already been evaluated",
+          message: `Revision ${versionToScreen} of this proposal has already been evaluated`,
+          version: versionToScreen,
         });
       }
       // Re-throw other database errors
@@ -200,9 +242,10 @@ export default async function handler(
       saved: true,
       passed: evaluation.overallPass,
       evaluation,
+      version: versionToScreen,
       message: evaluation.overallPass
-        ? "Evaluation passed and saved"
-        : "Evaluation failed but saved",
+        ? `Evaluation passed and saved for revision ${versionToScreen}`
+        : `Evaluation failed but saved for revision ${versionToScreen}`,
     });
   } catch (error: any) {
     console.error("Evaluation error:", error);

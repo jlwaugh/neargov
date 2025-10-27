@@ -5,27 +5,36 @@ import {
   text,
   timestamp,
   index,
+  integer,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import type { Evaluation } from "@/types/evaluation";
 
 /**
  * Screening results table
  *
- * topicId is the primary key - ensures one screening per Discourse topic
- * Database will reject duplicate topicId inserts automatically
+ * Composite primary key (topicId, revisionNumber) - supports multiple screenings per topic
+ * Each revision of a topic gets its own screening result
  */
 export const screeningResults = pgTable(
   "screening_results",
   {
-    topicId: varchar("topic_id", { length: 255 }).primaryKey(),
+    topicId: varchar("topic_id", { length: 255 }).notNull(),
+    revisionNumber: integer("revision_number").notNull(),
     evaluation: jsonb("evaluation").$type<Evaluation>().notNull(),
     title: text("title").notNull(),
     nearAccount: varchar("near_account", { length: 255 }).notNull(),
     timestamp: timestamp("timestamp", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    // Optional: store when the revision was created in the forum
+    revisionTimestamp: timestamp("revision_timestamp", { withTimezone: true }),
   },
   (table) => ({
+    // Composite primary key
+    pk: primaryKey({ columns: [table.topicId, table.revisionNumber] }),
+    // Index on topicId for querying all revisions of a topic
+    topicIdIdx: index("idx_screening_results_topic_id").on(table.topicId),
     // Index on near_account for filtering by account
     nearAccountIdx: index("idx_screening_results_near_account").on(
       table.nearAccount
@@ -37,6 +46,11 @@ export const screeningResults = pgTable(
     // Index on JSON field for filtering by pass/fail
     overallPassIdx: index("idx_screening_results_overall_pass").on(
       table.evaluation
+    ),
+    // Composite index for efficient topic + revision lookups
+    topicRevisionIdx: index("idx_screening_results_topic_revision").on(
+      table.topicId,
+      table.revisionNumber.desc()
     ),
   })
 );

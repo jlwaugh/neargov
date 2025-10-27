@@ -356,7 +356,13 @@ export default function ProposalDetail() {
 
           {/* Version History */}
           <div style={{ marginTop: "2rem" }}>
-            <VersionHistory proposalId={id as string} />
+            <VersionHistory
+              proposalId={id as string}
+              title={proposal.title}
+              content={proposal.content}
+              nearAccount={signedAccountId || ""}
+              wallet={wallet}
+            />
           </div>
 
           {/* Replies Section */}
