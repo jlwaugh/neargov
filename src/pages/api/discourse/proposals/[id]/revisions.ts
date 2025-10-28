@@ -60,33 +60,9 @@ export default async function handler(
       });
     }
 
-    // Try to fetch revisions
+    // Fetch all revisions (they always start at 2)
     const revisions = [];
-
-    // First, fetch any available revision to get the first_revision and last_revision range
-    let firstRevNum = 1;
-    let lastRevNum = version - 1;
-
-    // Try to get the last revision to find the proper range
-    for (let attempt = version - 1; attempt >= 1; attempt--) {
-      try {
-        const testUrl = `${DISCOURSE_URL}/posts/${postId}/revisions/${attempt}.json`;
-        const testResponse = await fetch(testUrl, { headers });
-
-        if (testResponse.ok) {
-          const testData = await testResponse.json();
-          firstRevNum = testData.first_revision || 1;
-          lastRevNum = testData.last_revision || version - 1;
-          console.log(`Revision range: ${firstRevNum} to ${lastRevNum}`);
-          break;
-        }
-      } catch (err) {
-        // Continue trying
-      }
-    }
-
-    // Now fetch all revisions in the proper range
-    for (let i = firstRevNum; i <= lastRevNum; i++) {
+    for (let i = 2; i <= version; i++) {
       try {
         const revUrl = `${DISCOURSE_URL}/posts/${postId}/revisions/${i}.json`;
         console.log("Fetching:", revUrl);
