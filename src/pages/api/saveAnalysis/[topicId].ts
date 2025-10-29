@@ -67,7 +67,7 @@ export default async function handler(
 
   // Content length limits
   const MAX_TITLE_LENGTH = 500;
-  const MAX_CONTENT_LENGTH = 10000; // ~10KB
+  const MAX_CONTENT_LENGTH = 20000; // ~20KB
 
   if (title.length > MAX_TITLE_LENGTH) {
     return res.status(400).json({

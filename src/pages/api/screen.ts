@@ -115,7 +115,7 @@ export default async function handler(
 
   // Content length limits
   const MAX_TITLE_LENGTH = 500;
-  const MAX_PROPOSAL_LENGTH = 10000;
+  const MAX_PROPOSAL_LENGTH = 20000;
 
   if (title.length > MAX_TITLE_LENGTH) {
     return res.status(400).json({
@@ -160,7 +160,7 @@ export default async function handler(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-oss-120b",
+          model: "Qwen/Qwen3-30B-A3B-Instruct-2507",
           messages: [
             {
               role: "user",
