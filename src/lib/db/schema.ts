@@ -8,6 +8,7 @@ import {
   integer,
   primaryKey,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { Evaluation } from "@/types/evaluation";
 
 /**
@@ -45,7 +46,7 @@ export const screeningResults = pgTable(
     ),
     // Index on JSON field for filtering by pass/fail
     overallPassIdx: index("idx_screening_results_overall_pass").on(
-      table.evaluation
+      sql`((evaluation->>'overallPass')::boolean)`
     ),
     // Composite index for efficient topic + revision lookups
     topicRevisionIdx: index("idx_screening_results_topic_revision").on(
