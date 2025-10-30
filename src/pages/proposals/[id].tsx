@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import VersionHistory from "@/components/VersionHistory";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
 import { ScreeningButton } from "@/components/ScreeningButton";
@@ -50,6 +49,7 @@ export default function ProposalDetail() {
   const [screening, setScreening] = useState<ScreeningData | null>(null);
   const [screeningChecked, setScreeningChecked] = useState(false);
   const [currentRevision, setCurrentRevision] = useState<number>(1);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
 
   // Get wallet and account from useNear hook
   const { wallet, signedAccountId } = useNear();
@@ -153,9 +153,6 @@ export default function ProposalDetail() {
               <span className="alert-icon">⚠</span>
               <p className="alert-text">{error || "Proposal not found"}</p>
             </div>
-            <Link href="/proposals" className="btn btn-secondary">
-              ← Back to Proposals
-            </Link>
           </div>
         </div>
       </div>
@@ -166,236 +163,295 @@ export default function ProposalDetail() {
 
   return (
     <div className="page-wrapper">
-      <div className="container">
-        <div className="card">
-          {/* Back Button */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <Link
-              href="/proposals"
-              className="btn btn-secondary"
-              style={{
-                backgroundColor: "transparent",
-                border: "1px solid #d1d5db",
-                color: "#374151",
-              }}
-            >
-              ← Back to Proposals
-            </Link>
+      <div
+        style={{ maxWidth: "1400px", margin: "0 auto", padding: "2rem 1rem" }}
+      >
+        {/* Header: Title and Metadata - FULL WIDTH */}
+        <div className="card" style={{ marginBottom: "2rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: "0.75rem",
+            }}
+          >
+            <h1 className="page-title" style={{ margin: 0, fontSize: "2rem" }}>
+              {proposal.title}
+            </h1>
+
+            {/* Overall Pass/Fail */}
+            {screening && screening.revisionNumber === currentRevision && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  flexShrink: 0,
+                  marginLeft: "1rem",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#6b7280",
+                    fontWeight: "600",
+                  }}
+                >
+                  {screening.evaluation.overallPass ? "Pass" : "Fail"}
+                </div>
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    background: screening.evaluation.overallPass
+                      ? "#d1fae5"
+                      : "#fee2e2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1rem",
+                    fontWeight: "700",
+                    color: screening.evaluation.overallPass
+                      ? "#065f46"
+                      : "#991b1b",
+                  }}
+                >
+                  {screening.evaluation.overallPass ? "✓" : "✕"}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Title */}
-          <h1 className="page-title" style={{ marginBottom: "2rem" }}>
-            {proposal.title}
-          </h1>
-
-          {/* AI Screening Badge - Shows if screening exists for CURRENT revision */}
-          {screeningChecked &&
-            screening &&
-            screening.revisionNumber === currentRevision && (
-              <ScreeningBadge screening={screening} />
-            )}
-
-          {/* Screen Proposal Button - Show if no screening for current revision */}
-          {screeningChecked &&
-            (!screening || screening.revisionNumber !== currentRevision) &&
-            wallet &&
-            signedAccountId && (
-              <ScreeningButton
-                topicId={id as string}
-                title={proposal.title}
-                content={proposal.content}
-                nearAccount={signedAccountId}
-                wallet={wallet}
-                revisionNumber={currentRevision}
-                onScreeningComplete={() => fetchProposal(id as string)}
-              />
-            )}
-
-          {/* Show message if wallet not connected */}
-          {screeningChecked &&
-            (!screening || screening.revisionNumber !== currentRevision) &&
-            (!wallet || !signedAccountId) && (
-              <div className="card" style={{ marginBottom: "2rem" }}>
-                <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                  💡 Connect your NEAR wallet to screen this proposal with AI
-                </p>
-              </div>
-            )}
-
-          {/* Metadata Section */}
+          {/* Compact metadata row */}
           <div
-            className="card"
-            style={{ backgroundColor: "#f9fafb", marginBottom: "2rem" }}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "1rem",
+              fontSize: "0.875rem",
+              color: "#6b7280",
+            }}
           >
-            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
-              Proposal Information
-            </h2>
-
-            <div style={{ display: "grid", gap: "1rem" }}>
-              {/* Author */}
-              <div>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.25rem",
-                  }}
-                >
-                  Proposal Author
-                </div>
-                <div style={{ fontSize: "1rem", fontWeight: "500" }}>
-                  <span>@{proposal.username}</span>
-                  {proposal.near_wallet && (
-                    <span
-                      style={{
-                        marginLeft: "1rem",
-                        color: "#6b7280",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      NEAR: {proposal.near_wallet}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Date/Time */}
-              <div>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.25rem",
-                  }}
-                >
-                  Proposal Date & Time
-                </div>
-                <div style={{ fontSize: "1rem", fontWeight: "500" }}>
-                  {new Date(proposal.created_at).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}{" "}
-                  at{" "}
-                  {new Date(proposal.created_at).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              </div>
-
-              {/* Discourse Link */}
-              <div>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.25rem",
-                  }}
-                >
-                  Discourse Thread
-                </div>
+            {/* Left side: Author info */}
+            <div>
+              <strong style={{ color: "#374151" }}>@{proposal.username}</strong>
+              {proposal.near_wallet && (
+                <span style={{ marginLeft: "0.75rem" }}>
+                  • {proposal.near_wallet}
+                </span>
+              )}
+              <span style={{ marginLeft: "0.75rem" }}>
+                •{" "}
+                {new Date(proposal.created_at).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </span>
+              <span style={{ marginLeft: "0.75rem" }}>
+                •{" "}
                 <a
                   href={`https://discuss.near.vote/t/${proposal.topic_slug}/${proposal.topic_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: "#2563eb", textDecoration: "underline" }}
+                  style={{ color: "#2563eb", textDecoration: "none" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.textDecoration = "underline")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.textDecoration = "none")
+                  }
                 >
                   View on Discourse →
                 </a>
-              </div>
-
-              {/* Discourse Stats */}
-              <div>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Discussion Activity
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "2rem",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <span style={{ fontSize: "1.5rem", fontWeight: "700" }}>
-                      {formatNumber(proposal.reply_count)}
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: "0.5rem",
-                        color: "#6b7280",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      {proposal.reply_count === 1 ? "Reply" : "Replies"}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "1.5rem", fontWeight: "700" }}>
-                      {formatNumber(proposal.views)}
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: "0.5rem",
-                        color: "#6b7280",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      {proposal.views === 1 ? "View" : "Views"}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "1.5rem", fontWeight: "700" }}>
-                      {daysSinceActivity}
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: "0.5rem",
-                        color: "#6b7280",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      {daysSinceActivity === 1 ? "Day" : "Days"} Since Activity
-                    </span>
-                  </div>
-                </div>
-              </div>
+              </span>
             </div>
-          </div>
 
-          {/* Proposal Content */}
-          <div className="card">
-            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
-              Proposal Content
-            </h2>
+            {/* Right side: Activity stats */}
             <div
               style={{
-                lineHeight: "1.8",
-                color: "#374151",
+                display: "flex",
+                gap: "1.5rem",
+                alignItems: "center",
               }}
-              dangerouslySetInnerHTML={{ __html: proposal.content }}
-            />
-          </div>
-
-          {/* Discussion Summary - Only show if there are replies */}
-          {proposal.reply_count > 0 && (
-            <div style={{ marginTop: "2rem" }}>
-              <DiscussionSummary
-                proposalId={id as string}
-                replyCount={proposal.reply_count}
-              />
+            >
+              <div>
+                <span style={{ fontWeight: "600", color: "#374151" }}>
+                  {formatNumber(proposal.reply_count)}
+                </span>{" "}
+                💬
+              </div>
+              <div>
+                <span style={{ fontWeight: "600", color: "#374151" }}>
+                  {formatNumber(proposal.views)}
+                </span>{" "}
+                👁
+              </div>
+              <div>
+                <span style={{ fontWeight: "600", color: "#374151" }}>
+                  {daysSinceActivity}d
+                </span>{" "}
+                ago
+              </div>
             </div>
-          )}
+          </div>
+        </div>
 
-          {/* Version History */}
-          <div style={{ marginTop: "2rem" }}>
+        {/* TWO-COLUMN LAYOUT */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr",
+            gap: "2rem",
+            alignItems: "start",
+          }}
+        >
+          {/* LEFT COLUMN - Main Content (scrollable) */}
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
+          >
+            {/* Proposal Content - Collapsible */}
+            <div className="card" style={{ position: "relative" }}>
+              {/* Content wrapper with max height when collapsed */}
+              <div
+                style={{
+                  maxHeight: isContentExpanded ? "none" : "400px",
+                  overflow: "hidden",
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    lineHeight: "1.8",
+                    color: "#374151",
+                  }}
+                  dangerouslySetInnerHTML={{ __html: proposal.content }}
+                />
+
+                {/* Gradient overlay when collapsed */}
+                {!isContentExpanded && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: "100px",
+                      background:
+                        "linear-gradient(to bottom, transparent, white)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Read More button (inline when collapsed) */}
+              {!isContentExpanded && (
+                <div
+                  style={{
+                    marginTop: "1rem",
+                    textAlign: "center",
+                  }}
+                >
+                  <button
+                    onClick={() => setIsContentExpanded(true)}
+                    style={{
+                      padding: "0.75rem 2rem",
+                      fontSize: "0.875rem",
+                      fontWeight: "600",
+                      color: "#374151",
+                      background: "#f3f4f6",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#e5e7eb";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#f3f4f6";
+                    }}
+                  >
+                    Read More
+                  </button>
+                </div>
+              )}
+
+              <style jsx>{`
+                .card :global(table) {
+                  width: 100%;
+                  border-collapse: collapse;
+                  margin: 1rem 0;
+                  font-size: 0.875rem;
+                }
+                .card :global(table th) {
+                  background-color: #f3f4f6;
+                  padding: 0.75rem;
+                  text-align: left;
+                  font-weight: 600;
+                  border: 1px solid #d1d5db;
+                }
+                .card :global(table td) {
+                  padding: 0.75rem;
+                  border: 1px solid #d1d5db;
+                }
+                .card :global(table tr:nth-child(even)) {
+                  background-color: #f9fafb;
+                }
+                .card :global(a) {
+                  color: #2563eb;
+                  text-decoration: underline;
+                }
+                .card :global(a:hover) {
+                  color: #1d4ed8;
+                }
+              `}</style>
+            </div>
+
+            {/* Hide button (fixed to viewport when expanded) */}
+            {isContentExpanded && (
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: "20px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 1000,
+                }}
+              >
+                <button
+                  onClick={() => setIsContentExpanded(false)}
+                  style={{
+                    padding: "0.75rem 2rem",
+                    fontSize: "0.875rem",
+                    fontWeight: "600",
+                    color: "#374151",
+                    background: "#f3f4f6",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    boxShadow:
+                      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#e5e7eb";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#f3f4f6";
+                  }}
+                >
+                  Hide
+                </button>
+              </div>
+            )}
+
+            {/* Version History */}
             <VersionHistory
               proposalId={id as string}
               title={proposal.title}
@@ -403,79 +459,136 @@ export default function ProposalDetail() {
               nearAccount={signedAccountId || ""}
               wallet={wallet}
             />
-          </div>
 
-          {/* Replies Section */}
-          {proposal.replies && proposal.replies.length > 0 && (
-            <div style={{ marginTop: "2rem" }} className="card">
-              <h2 style={{ fontSize: "1.125rem", marginBottom: "1.5rem" }}>
-                Replies ({proposal.replies.length})
-              </h2>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1.5rem",
-                }}
-              >
-                {proposal.replies.map((reply) => (
-                  <div
-                    key={reply.id}
-                    style={{
-                      padding: "1rem",
-                      backgroundColor: "#f9fafb",
-                      borderRadius: "0.5rem",
-                      borderLeft: "3px solid #e5e7eb",
-                    }}
-                  >
+            {/* Replies Section */}
+            {proposal.replies && proposal.replies.length > 0 && (
+              <div className="card">
+                <h2 style={{ fontSize: "1.125rem", marginBottom: "1.5rem" }}>
+                  Replies ({proposal.replies.length})
+                </h2>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1.5rem",
+                  }}
+                >
+                  {proposal.replies.map((reply) => (
                     <div
+                      key={reply.id}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "0.75rem",
-                        fontSize: "0.875rem",
-                        color: "#6b7280",
+                        padding: "1rem",
+                        backgroundColor: "#f9fafb",
+                        borderRadius: "0.5rem",
+                        borderLeft: "3px solid #e5e7eb",
                       }}
                     >
-                      <div>
-                        <strong style={{ color: "#374151" }}>
-                          @{reply.username}
-                        </strong>
-                        <span style={{ marginLeft: "0.5rem" }}>
-                          #{reply.post_number}
-                        </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "0.75rem",
+                          fontSize: "0.875rem",
+                          color: "#6b7280",
+                        }}
+                      >
+                        <div>
+                          <strong style={{ color: "#374151" }}>
+                            @{reply.username}
+                          </strong>
+                          <span style={{ marginLeft: "0.5rem" }}>
+                            #{reply.post_number}
+                          </span>
+                        </div>
+                        <div>
+                          {new Date(reply.created_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}{" "}
+                          at{" "}
+                          {new Date(reply.created_at).toLocaleTimeString(
+                            "en-US",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        {new Date(reply.created_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          }
-                        )}{" "}
-                        at{" "}
-                        {new Date(reply.created_at).toLocaleTimeString(
-                          "en-US",
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                      </div>
+                      <div
+                        style={{
+                          lineHeight: "1.6",
+                          color: "#374151",
+                        }}
+                        dangerouslySetInnerHTML={{ __html: reply.cooked }}
+                      />
                     </div>
-                    <div
-                      style={{
-                        lineHeight: "1.6",
-                        color: "#374151",
-                      }}
-                      dangerouslySetInnerHTML={{ __html: reply.cooked }}
-                    />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* RIGHT COLUMN - Sidebar (sticky, scrollable) */}
+          <div
+            style={{
+              position: "sticky",
+              top: "1rem",
+              maxHeight: "calc(100vh - 2rem)",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5rem",
+            }}
+          >
+            {/* AI Screening Badge or Button */}
+            {screeningChecked &&
+              screening &&
+              screening.revisionNumber === currentRevision && (
+                <ScreeningBadge screening={screening} />
+              )}
+
+            {screeningChecked &&
+              (!screening || screening.revisionNumber !== currentRevision) &&
+              wallet &&
+              signedAccountId && (
+                <ScreeningButton
+                  topicId={id as string}
+                  title={proposal.title}
+                  content={proposal.content}
+                  nearAccount={signedAccountId}
+                  wallet={wallet}
+                  revisionNumber={currentRevision}
+                  onScreeningComplete={() =>
+                    fetchScreening(id as string, currentRevision)
+                  }
+                />
+              )}
+
+            {screeningChecked &&
+              (!screening || screening.revisionNumber !== currentRevision) &&
+              (!wallet || !signedAccountId) && (
+                <div className="card">
+                  <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                    💡 Connect your NEAR wallet to screen this proposal with AI
+                  </p>
+                </div>
+              )}
+
+            {/* Discussion Summary - Only show if there are replies */}
+            {proposal.reply_count > 0 && (
+              <DiscussionSummary
+                proposalId={id as string}
+                replyCount={proposal.reply_count}
+              />
+            )}
+
+            {/* Future: Copilot component can go here */}
+          </div>
         </div>
       </div>
     </div>

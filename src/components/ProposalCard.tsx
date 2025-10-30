@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 interface ProposalCardProps {
   id: number;
   title: string;
@@ -42,103 +40,146 @@ export default function ProposalCard({
 
   const daysSinceActivity = getDaysSinceActivity(last_posted_at);
 
-  return (
-    <div className="card">
-      {/* Proposal Title */}
-      <h3
-        style={{
-          marginBottom: "0.5rem",
-          fontSize: "1.25rem",
-          fontWeight: "600",
-        }}
-      >
-        {title}
-      </h3>
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on a link
+    if ((e.target as HTMLElement).tagName === "A") {
+      return;
+    }
+    window.location.href = `/proposals/${topic_id}`;
+  };
 
-      {/* Author Information */}
+  return (
+    <div
+      className="card"
+      style={{
+        padding: "1rem 1.25rem",
+        cursor: "pointer",
+        transition: "all 0.2s",
+        borderLeft: "3px solid transparent",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+      onClick={handleCardClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderLeftColor = "#00ec97";
+        e.currentTarget.style.boxShadow = "0 4px 6px -1px rgb(0 0 0 / 0.1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderLeftColor = "transparent";
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      {/* Header: Title and Days Since Activity */}
       <div
         style={{
-          marginBottom: "1rem",
-          fontSize: "0.875rem",
-          color: "#6b7280",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: "0.5rem",
+          gap: "1rem",
         }}
       >
-        <div style={{ marginBottom: "0.25rem" }}>
-          <strong>Author:</strong> @{username}
-          {near_wallet && (
-            <span style={{ marginLeft: "0.5rem" }}>| NEAR: {near_wallet}</span>
-          )}
-        </div>
-        <div>
-          <strong>Posted:</strong>{" "}
-          {new Date(created_at).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}{" "}
-          at{" "}
-          {new Date(created_at).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </div>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: "1.125rem",
+            fontWeight: "600",
+            flex: 1,
+          }}
+        >
+          {title}
+        </h3>
+        {daysSinceActivity !== null && (
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#6b7280",
+              whiteSpace: "nowrap",
+              paddingTop: "0.125rem",
+            }}
+          >
+            {daysSinceActivity}d ago
+          </div>
+        )}
       </div>
 
-      {/* Excerpt - Already cleaned by API */}
+      {/* Author and Date */}
+      <div
+        style={{
+          fontSize: "0.8125rem",
+          color: "#6b7280",
+          marginBottom: "0.75rem",
+        }}
+      >
+        <span>
+          <strong>@{username}</strong>
+        </span>
+        {near_wallet && (
+          <span style={{ marginLeft: "0.5rem" }}>• {near_wallet}</span>
+        )}
+        <span style={{ marginLeft: "0.5rem" }}>
+          •{" "}
+          {new Date(created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </span>
+      </div>
+
+      {/* Excerpt */}
       {excerpt && (
         <p
           style={{
-            marginBottom: "1rem",
+            margin: "0 0 0.75rem 0",
             color: "#4b5563",
-            lineHeight: "1.6",
+            lineHeight: "1.5",
+            fontSize: "0.875rem",
           }}
         >
           {excerpt}
         </p>
       )}
 
-      {/* Discourse Metadata Stats */}
+      {/* Footer: View on Discourse button + Stats */}
       <div
         style={{
           display: "flex",
-          gap: "1.5rem",
-          marginBottom: "1rem",
-          padding: "0.75rem",
-          backgroundColor: "#f9fafb",
-          borderRadius: "0.5rem",
-          fontSize: "0.875rem",
-          flexWrap: "wrap",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "1rem",
         }}
       >
-        <div
+        {/* View on Discourse button */}
+        <a
+          href={`https://discuss.near.vote/t/${topic_slug}/${topic_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
           style={{
+            fontSize: "0.8125rem",
+            color: "#2563eb",
+            textDecoration: "none",
             display: "flex",
             alignItems: "center",
             gap: "0.25rem",
           }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.textDecoration = "underline")
+          }
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
         >
-          <span style={{ fontSize: "1rem" }}>💬</span>
-          <span>
-            <strong>{formatNumber(reply_count)}</strong>{" "}
-            {reply_count === 1 ? "reply" : "replies"}
-          </span>
-        </div>
+          View on Discourse →
+        </a>
 
+        {/* Stats */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: "0.25rem",
+            gap: "1rem",
+            fontSize: "0.8125rem",
+            color: "#6b7280",
           }}
         >
-          <span style={{ fontSize: "1rem" }}>👁</span>
-          <span>
-            <strong>{formatNumber(views)}</strong>{" "}
-            {views === 1 ? "view" : "views"}
-          </span>
-        </div>
-
-        {daysSinceActivity !== null && (
           <div
             style={{
               display: "flex",
@@ -146,40 +187,21 @@ export default function ProposalCard({
               gap: "0.25rem",
             }}
           >
-            <span style={{ fontSize: "1rem" }}>🕐</span>
-            <span>
-              <strong>{daysSinceActivity}</strong>{" "}
-              {daysSinceActivity === 1 ? "day" : "days"} since activity
-            </span>
+            <span>💬</span>
+            <span>{formatNumber(reply_count)}</span>
           </div>
-        )}
-      </div>
 
-      {/* Action Buttons */}
-      <div
-        style={{
-          display: "flex",
-          gap: "1rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <Link href={`/proposals/${topic_id}`} className="btn btn-primary">
-          View Details
-        </Link>
-
-        <a
-          href={`https://discuss.near.vote/t/${topic_slug}/${topic_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-secondary"
-          style={{
-            backgroundColor: "transparent",
-            border: "1px solid #d1d5db",
-            color: "#374151",
-          }}
-        >
-          View on Discourse →
-        </a>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem",
+            }}
+          >
+            <span>👁</span>
+            <span>{formatNumber(views)}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

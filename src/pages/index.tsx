@@ -1,51 +1,42 @@
-"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import ProposalCard from "@/components/ProposalCard";
 
-import { useState } from "react";
-import { useNear } from "@/hooks/useNear";
-import type { Evaluation } from "@/types/evaluation";
-import { ProposalForm } from "../components/ProposalForm";
-import { ScreeningResults } from "../components/ScreeningResults";
-import { ConnectDiscourse } from "../components/ConnectDiscourse";
-import { PublishButton } from "../components/PublishButton";
+interface Post {
+  id: number;
+  title: string;
+  excerpt: string;
+  created_at: string;
+  username: string;
+  topic_id: number;
+  topic_slug: string;
+  reply_count?: number;
+  views?: number;
+  last_posted_at?: string;
+  near_wallet?: string;
+}
 
-export default function Main() {
-  const { signedAccountId, wallet, loading: walletLoading, signIn } = useNear();
-
-  const [title, setTitle] = useState("");
-  const [proposal, setProposal] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<Evaluation | null>(null);
+export default function Home() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [linkedAccount, setLinkedAccount] = useState<any>(null);
 
-  const evaluateProposal = async () => {
-    if (!title.trim() || !proposal.trim()) {
-      setError("Please enter both title and proposal");
-      return;
-    }
+  useEffect(() => {
+    fetchProposals();
+  }, []);
 
-    setLoading(true);
-    setError("");
-    setResult(null);
-
+  const fetchProposals = async () => {
     try {
-      const response = await fetch("/api/screen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, proposal }),
-      });
+      const response = await fetch("/api/discourse/latest");
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || `API request failed: ${response.status}`
-        );
+        throw new Error("Failed to fetch proposals");
       }
 
       const data = await response.json();
-      setResult(data.evaluation);
+      setPosts(data.latest_posts || []);
     } catch (err: any) {
-      setError(err.message || "Failed to evaluate proposal");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -54,110 +45,78 @@ export default function Main() {
   return (
     <div className="page-wrapper">
       <div className="container">
-        <div className="card">
-          <div className="screener-header text-center">
-            <h1 className="page-title">Proposal Screener</h1>
-            <p className="page-subtitle">
-              Use NEAR AI to privately check against established criteria, then
-              publish to the forum.
-            </p>
+        {/* Header with New Proposal button */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "2rem",
+          }}
+        >
+          <div>
+            <h1 className="page-title" style={{ margin: 0 }}>
+              Proposals
+            </h1>
           </div>
-
-          <ProposalForm
-            title={title}
-            proposal={proposal}
-            onTitleChange={setTitle}
-            onProposalChange={setProposal}
-            onSubmit={evaluateProposal}
-            loading={loading}
-          />
-
-          {error && (
-            <div className="alert alert-error">
-              <span className="alert-icon">⚠</span>
-              <p className="alert-text">{error}</p>
-            </div>
-          )}
-
-          {result && (
-            <>
-              <ScreeningResults evaluation={result} />
-
-              {!result.overallPass && (
-                <div
-                  className="alert alert-warning"
-                  style={{ marginTop: "2rem" }}
-                >
-                  <span className="alert-icon">ℹ️</span>
-                  <p className="alert-text">
-                    Your proposal didn't pass screening. Review the
-                    recommendations above, edit your proposal, and click "Screen
-                    Proposal" again when ready.
-                  </p>
-                </div>
-              )}
-
-              {result.overallPass && (
-                <>
-                  {/* Show wallet warning if not connected */}
-                  {!walletLoading && !signedAccountId && (
-                    <div
-                      className="alert alert-error"
-                      style={{ marginTop: "2rem" }}
-                    >
-                      <span className="alert-icon">⚠</span>
-                      <div>
-                        <p
-                          className="alert-text"
-                          style={{ marginBottom: "1rem" }}
-                        >
-                          Please connect your NEAR wallet to publish your
-                          proposal
-                        </p>
-                        <button onClick={signIn} className="btn btn-primary">
-                          Connect NEAR Wallet
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {signedAccountId && wallet && (
-                    <>
-                      {!linkedAccount && (
-                        <ConnectDiscourse
-                          signedAccountId={signedAccountId}
-                          wallet={wallet}
-                          onLinked={setLinkedAccount}
-                          onError={setError}
-                        />
-                      )}
-
-                      {linkedAccount && (
-                        <PublishButton
-                          wallet={wallet}
-                          title={title}
-                          content={proposal}
-                          linkedAccount={linkedAccount}
-                          evaluation={result}
-                          onPublished={() => {}}
-                          onError={setError}
-                        />
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-            </>
-          )}
+          <Link
+            href="/proposals/new"
+            className="btn btn-primary"
+            style={{
+              background: "#00ec97",
+              color: "#ffffff",
+              fontWeight: "600",
+            }}
+          >
+            + New Proposal
+          </Link>
         </div>
 
-        <footer className="footer">
-          <p className="footer-text">
-            AI screening supports both proposal authors and community reviewers.
-            Results are advisory and independent of official governance
-            processes.
-          </p>
-        </footer>
+        {loading && (
+          <div className="card">
+            <div style={{ textAlign: "center", padding: "2rem" }}>
+              <p>Loading proposals...</p>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="alert alert-error">
+            <span className="alert-icon">⚠</span>
+            <p className="alert-text">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && posts.length === 0 && (
+          <div className="card">
+            <div className="info-card">
+              <p className="info-card-text">No proposals found.</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && posts.length > 0 && (
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
+            {posts.map((post) => (
+              <ProposalCard
+                key={post.id}
+                id={post.id}
+                title={post.title}
+                excerpt={post.excerpt}
+                created_at={post.created_at}
+                username={post.username}
+                topic_id={post.topic_id}
+                topic_slug={post.topic_slug}
+                reply_count={post.reply_count}
+                views={post.views}
+                last_posted_at={post.last_posted_at}
+                near_wallet={post.near_wallet}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

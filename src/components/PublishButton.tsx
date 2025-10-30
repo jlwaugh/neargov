@@ -52,20 +52,11 @@ export const PublishButton = ({
         recipient: "social.near",
       });
 
-      // Add AI screening badge
-      const badge = `> **✨ AI-Screened Proposal**
-> Submitted by \`${linkedAccount.nearAccount}\`
-> Pre-approved by NEAR AI
-
----
-
-`;
-
       // Publish to Discourse
       const data = await client.discourse.createPost({
         authToken: discourseAuthToken,
         title: title,
-        raw: badge + content,
+        raw: content,
         category: 5,
       });
 

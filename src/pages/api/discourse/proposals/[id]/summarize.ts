@@ -115,7 +115,7 @@ Keep the summary concise but informative (200-400 words). Use bullet points wher
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-oss-120b",
+          model: "Qwen/Qwen3-30B-A3B-Instruct-2507",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.5,
           max_tokens: 1000,

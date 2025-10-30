@@ -1,0 +1,164 @@
+"use client";
+
+import { useState } from "react";
+import { useNear } from "@/hooks/useNear";
+import type { Evaluation } from "@/types/evaluation";
+import { ProposalForm } from "@/components/ProposalForm";
+import { ScreeningResults } from "@/components/ScreeningResults";
+import { ConnectDiscourse } from "@/components/ConnectDiscourse";
+import { PublishButton } from "@/components/PublishButton";
+
+export default function NewProposal() {
+  const { signedAccountId, wallet, loading: walletLoading, signIn } = useNear();
+
+  const [title, setTitle] = useState("");
+  const [proposal, setProposal] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<Evaluation | null>(null);
+  const [error, setError] = useState("");
+  const [linkedAccount, setLinkedAccount] = useState<any>(null);
+
+  const evaluateProposal = async () => {
+    if (!title.trim() || !proposal.trim()) {
+      setError("Please enter both title and proposal");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetch("/api/screen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, proposal }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || `API request failed: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      setResult(data.evaluation);
+    } catch (err: any) {
+      setError(err.message || "Failed to evaluate proposal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="page-wrapper">
+      <div className="container">
+        <div className="card">
+          <div className="screener-header text-center">
+            <h1 className="page-title">New Proposal</h1>
+            <p className="page-subtitle">
+              Use NEAR AI to privately check against established criteria, then
+              publish to the forum.
+            </p>
+          </div>
+
+          <ProposalForm
+            title={title}
+            proposal={proposal}
+            onTitleChange={setTitle}
+            onProposalChange={setProposal}
+            onSubmit={evaluateProposal}
+            loading={loading}
+          />
+
+          {error && (
+            <div className="alert alert-error">
+              <span className="alert-icon">⚠</span>
+              <p className="alert-text">{error}</p>
+            </div>
+          )}
+
+          {result && (
+            <>
+              <ScreeningResults evaluation={result} />
+
+              {!result.overallPass && (
+                <div
+                  className="alert alert-warning"
+                  style={{ marginTop: "2rem" }}
+                >
+                  <span className="alert-icon">ℹ️</span>
+                  <p className="alert-text">
+                    Your proposal didn't pass screening. Review the
+                    recommendations above, edit your proposal, and click "Screen
+                    Proposal" again when ready.
+                  </p>
+                </div>
+              )}
+
+              {result.overallPass && (
+                <>
+                  {/* Show wallet warning if not connected */}
+                  {!walletLoading && !signedAccountId && (
+                    <div
+                      className="alert alert-error"
+                      style={{ marginTop: "2rem" }}
+                    >
+                      <span className="alert-icon">⚠</span>
+                      <div>
+                        <p
+                          className="alert-text"
+                          style={{ marginBottom: "1rem" }}
+                        >
+                          Please connect your NEAR wallet to publish your
+                          proposal
+                        </p>
+                        <button onClick={signIn} className="btn btn-primary">
+                          Connect NEAR Wallet
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {signedAccountId && wallet && (
+                    <>
+                      {!linkedAccount && (
+                        <ConnectDiscourse
+                          signedAccountId={signedAccountId}
+                          wallet={wallet}
+                          onLinked={setLinkedAccount}
+                          onError={setError}
+                        />
+                      )}
+
+                      {linkedAccount && (
+                        <PublishButton
+                          wallet={wallet}
+                          title={title}
+                          content={proposal}
+                          linkedAccount={linkedAccount}
+                          evaluation={result}
+                          onPublished={() => {}}
+                          onError={setError}
+                        />
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        <footer className="footer">
+          <p className="footer-text">
+            AI screening supports both proposal authors and community reviewers.
+            Results are advisory and independent of official governance
+            processes.
+          </p>
+        </footer>
+      </div>
+    </div>
+  );
+}

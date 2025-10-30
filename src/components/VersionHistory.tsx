@@ -260,6 +260,7 @@ export default function VersionHistory({
               title: title,
               nearAccount: screeningData.nearAccount,
               timestamp: screeningData.timestamp,
+              revisionNumber: revisionNumber,
             }}
           />
         </div>
