@@ -1,10 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { proposalCache, CacheKeys } from "../../utils/cache-utils";
 
 /**
  * POST /api/discourse/proposals/[id]/summarize
  *
- * Generates an AI summary of the entire discussion thread for a proposal.
- * Includes the original post and all replies.
+ * Generates an AI summary of a PROPOSAL (the first post in a topic).
+ * Executive-style summary focusing on key points and decision factors.
+ *
+ * CACHING: 1 hour TTL (proposals rarely change)
  *
  * Security:
  * - Public endpoint (no auth required)
@@ -25,7 +28,24 @@ export default async function handler(
   }
 
   try {
-    // Fetch the full discussion from Discourse
+    // ===================================================================
+    // CACHE CHECK
+    // ===================================================================
+    const cacheKey = CacheKeys.proposal(id);
+    const cached = proposalCache.get(cacheKey);
+
+    if (cached) {
+      // Return cached result
+      return res.status(200).json({
+        ...cached,
+        cached: true,
+        cacheAge: Math.round((Date.now() - cached.generatedAt) / 1000), // Age in seconds
+      });
+    }
+
+    // ===================================================================
+    // FETCH FROM DISCOURSE
+    // ===================================================================
     const DISCOURSE_URL =
       process.env.DISCOURSE_URL || "https://discuss.near.vote";
     const DISCOURSE_API_KEY = process.env.DISCOURSE_API_KEY;
@@ -40,23 +60,23 @@ export default async function handler(
       headers["Api-Username"] = DISCOURSE_API_USERNAME;
     }
 
-    // Get the topic with all posts
     const topicResponse = await fetch(`${DISCOURSE_URL}/t/${id}.json`, {
       headers,
     });
 
     if (!topicResponse.ok) {
-      throw new Error(`Discourse API error: ${topicResponse.status}`);
+      return res.status(404).json({ error: "Proposal not found" });
     }
 
     const topicData = await topicResponse.json();
-    const posts = topicData.post_stream?.posts || [];
 
-    if (posts.length === 0) {
-      return res.status(404).json({ error: "No posts found" });
+    // Get the first post (the proposal)
+    const proposalPost = topicData.post_stream?.posts?.[0];
+    if (!proposalPost) {
+      return res.status(404).json({ error: "Proposal post not found" });
     }
 
-    // Strip HTML from posts
+    // Strip HTML
     const stripHtml = (html: string): string => {
       return html
         .replace(/<[^>]*>/g, " ")
@@ -64,48 +84,48 @@ export default async function handler(
         .trim();
     };
 
-    // Build discussion context
-    const discussionText = posts
-      .map((post: any, index: number) => {
-        const isOriginal = index === 0;
-        const cleanContent = stripHtml(post.cooked);
-        return `${
-          isOriginal ? "[ORIGINAL PROPOSAL]" : `[REPLY by @${post.username}]`
-        }\n${cleanContent}`;
-      })
-      .join("\n\n---\n\n");
+    const proposalContent = stripHtml(proposalPost.cooked);
 
-    // Truncate if too long (to fit within AI context limits)
-    const MAX_LENGTH = 12000; // ~12k chars for safety
-    const truncatedDiscussion =
-      discussionText.length > MAX_LENGTH
-        ? discussionText.substring(0, MAX_LENGTH) +
-          "\n\n[... discussion truncated ...]"
-        : discussionText;
+    // Truncate if needed
+    const MAX_LENGTH = 8000;
+    const truncatedContent =
+      proposalContent.length > MAX_LENGTH
+        ? proposalContent.substring(0, MAX_LENGTH) +
+          "\n\n[... content truncated for length ...]"
+        : proposalContent;
 
-    // Get AI API key
+    // ===================================================================
+    // GENERATE AI SUMMARY
+    // ===================================================================
     const apiKey = process.env.NEAR_AI_CLOUD_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: "AI API not configured" });
     }
 
-    // Build summary prompt
-    const prompt = `You are summarizing a NEAR governance proposal discussion thread.
+    const prompt = `You are summarizing a NEAR governance proposal. Provide a comprehensive executive summary.
 
-${truncatedDiscussion}
+**Title:** ${topicData.title}
+**Author:** @${proposalPost.username}
+**Category:** ${topicData.category_id}
 
-Please provide a comprehensive summary that includes:
+**Proposal Content:**
+${truncatedContent}
 
-1. **Proposal Overview**: Brief description of what's being proposed
-2. **Key Discussion Points**: Main topics and concerns raised
-3. **Community Sentiment**: Overall tone (supportive/critical/mixed)
-4. **Action Items**: Any concrete next steps or decisions mentioned
-5. **Concerns Raised**: Important questions or objections
-6. **Support Indicators**: Positive feedback or endorsements
+Provide a structured summary (200-400 words) covering:
 
-Keep the summary concise but informative (200-400 words). Use bullet points where appropriate.`;
+**Overview:** [2-3 sentences explaining what this proposal is about]
 
-    // Call AI for summary
+**Key Points:**
+- [Main objectives and goals]
+- [Important details, metrics, or timelines]
+- [Any notable requirements or dependencies]
+
+**Impact:** [Who/what this affects and potential outcomes]
+
+**Considerations:** [Important factors for decision-makers to consider]
+
+Be thorough but concise. Focus on information relevant to decision-making.`;
+
     const summaryResponse = await fetch(
       "https://cloud-api.near.ai/v1/chat/completions",
       {
@@ -118,7 +138,7 @@ Keep the summary concise but informative (200-400 words). Use bullet points wher
           model: "Qwen/Qwen3-30B-A3B-Instruct-2507",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.5,
-          max_tokens: 1000,
+          max_tokens: 800,
         }),
       }
     );
@@ -134,18 +154,34 @@ Keep the summary concise but informative (200-400 words). Use bullet points wher
       throw new Error("Empty summary returned from AI");
     }
 
-    return res.status(200).json({
+    // ===================================================================
+    // BUILD RESPONSE
+    // ===================================================================
+    const response = {
       success: true,
       summary,
-      postCount: posts.length,
-      topicId: id,
-      topicTitle: topicData.title,
-      truncated: discussionText.length > MAX_LENGTH,
-    });
+      proposalId: id,
+      title: topicData.title,
+      author: proposalPost.username,
+      createdAt: proposalPost.created_at,
+      truncated: proposalContent.length > MAX_LENGTH,
+      viewCount: topicData.views,
+      replyCount: topicData.posts_count - 1, // Subtract the proposal itself
+      likeCount: proposalPost.like_count || 0,
+      generatedAt: Date.now(), // For cache age tracking
+      cached: false,
+    };
+
+    // ===================================================================
+    // STORE IN CACHE
+    // ===================================================================
+    proposalCache.set(cacheKey, response);
+
+    return res.status(200).json(response);
   } catch (error: any) {
-    console.error("Summary error:", error);
+    console.error("Proposal summary error:", error);
     return res.status(500).json({
-      error: "Failed to generate summary",
+      error: "Failed to generate proposal summary",
       details:
         process.env.NODE_ENV === "development" ? error.message : undefined,
     });
