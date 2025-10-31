@@ -68,7 +68,7 @@ export function DiscussionSummary({
 
     try {
       const response = await fetch(
-        `/api/discourse/proposals/${proposalId}/summarize`,
+        `/api/discourse/topics/${proposalId}/summarize`,
         {
           method: "POST",
         }

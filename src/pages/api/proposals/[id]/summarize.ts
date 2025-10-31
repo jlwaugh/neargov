@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { proposalCache, CacheKeys } from "../../utils/cache-utils";
+import { proposalCache, CacheKeys } from "../../../../utils/cache-utils";
 
 /**
  * POST /api/discourse/proposals/[id]/summarize

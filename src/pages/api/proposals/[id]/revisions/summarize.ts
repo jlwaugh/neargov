@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { revisionCache, CacheKeys } from "../../../../../../utils/cache-utils";
+import { revisionCache, CacheKeys } from "../../../../../utils/cache-utils";
 
 // TypeScript type definitions for Discourse API
 interface RevisionBodyChange {
@@ -23,25 +23,13 @@ interface DiscourseRevision {
   title_changes?: RevisionTitleChange;
 }
 
-interface DiscoursePost {
-  id: number;
-  version: number;
-  username: string;
-  cooked: string;
-  created_at: string;
-}
-
 /**
- * POST /api/discourse/posts/[id]/revisions/summarize
+ * POST /api/proposals/[id]/revisions/summarize
  *
- * Generates an AI summary of ALL REVISIONS to a post.
+ * Generates an AI summary of ALL REVISIONS to a proposal (topic's first post).
  * Analyzes what changed, why, and the significance of edits.
  *
- * CACHING: 15 minute TTL (revisions don't change once made, but new ones can be added)
- *
- * Security:
- * - Public endpoint (no auth required)
- * - Rate limited to prevent abuse
+ * CACHING: 15 minute TTL
  */
 export default async function handler(
   req: NextApiRequest,
@@ -54,18 +42,17 @@ export default async function handler(
   const { id } = req.query;
 
   if (!id || typeof id !== "string") {
-    return res.status(400).json({ error: "Invalid post ID" });
+    return res.status(400).json({ error: "Invalid topic ID" });
   }
 
   try {
     // ===================================================================
     // CACHE CHECK
     // ===================================================================
-    const cacheKey = CacheKeys.postRevision(id);
+    const cacheKey = CacheKeys.proposalRevision(id);
     const cached = revisionCache.get(cacheKey);
 
     if (cached) {
-      // Return cached result
       return res.status(200).json({
         ...cached,
         cached: true,
@@ -90,28 +77,36 @@ export default async function handler(
       headers["Api-Username"] = DISCOURSE_API_USERNAME;
     }
 
-    // Get the post to check version
-    const postResponse = await fetch(`${DISCOURSE_URL}/posts/${id}.json`, {
+    // Get topic to find first post
+    const topicResponse = await fetch(`${DISCOURSE_URL}/t/${id}.json`, {
       headers,
     });
 
-    if (!postResponse.ok) {
+    if (!topicResponse.ok) {
       return res.status(404).json({
-        error: "Post not found",
-        status: postResponse.status,
+        error: "Topic not found",
+        status: topicResponse.status,
       });
     }
 
-    const postData: DiscoursePost = await postResponse.json();
-    const version = postData.version || 1;
+    const topicData = await topicResponse.json();
+    const firstPost = topicData.post_stream?.posts?.[0];
+
+    if (!firstPost) {
+      return res.status(404).json({ error: "Post not found in topic" });
+    }
+
+    const postId = firstPost.id;
+    const version = firstPost.version || 1;
 
     // If version is 1, no edits have been made
     if (version <= 1) {
       return res.status(200).json({
         success: true,
         summary: "This post has not been edited. No revisions to analyze.",
-        postId: id,
-        author: postData.username,
+        topicId: id,
+        postId: postId,
+        author: firstPost.username,
         currentVersion: version,
         totalRevisions: 0,
         revisions: [],
@@ -123,7 +118,7 @@ export default async function handler(
     const revisions: DiscourseRevision[] = [];
     for (let i = 2; i <= version; i++) {
       try {
-        const revUrl = `${DISCOURSE_URL}/posts/${id}/revisions/${i}.json`;
+        const revUrl = `${DISCOURSE_URL}/posts/${postId}/revisions/${i}.json`;
         const revResponse = await fetch(revUrl, { headers });
 
         if (revResponse.ok) {
@@ -139,7 +134,6 @@ export default async function handler(
         }
       } catch (err) {
         console.error(`Error fetching revision ${i}:`, err);
-        // Continue fetching other revisions
       }
     }
 
@@ -213,8 +207,9 @@ export default async function handler(
 
     const prompt = `You are analyzing revision history for a NEAR governance post. Provide insights into what changed and why.
 
-**Post ID:** ${id}
-**Original Author:** @${postData.username}
+**Topic ID:** ${id}
+**Post ID:** ${postId}
+**Original Author:** @${firstPost.username}
 **Total Revisions:** ${revisions.length}
 **Current Version:** ${version}
 
@@ -278,8 +273,9 @@ Be specific about what changed. If revisions are minimal (typos, formatting), st
     const response = {
       success: true,
       summary,
-      postId: id,
-      author: postData.username,
+      topicId: id,
+      postId: postId,
+      author: firstPost.username,
       currentVersion: version,
       totalRevisions: revisions.length,
       revisions: revisions.map((rev) => ({

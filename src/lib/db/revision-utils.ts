@@ -12,7 +12,7 @@ import {
 import type { NewScreeningResult } from "./schema";
 
 /**
- * Response type from /api/discourse/proposals/[id]/revisions
+ * Response type from /api/proposals/[id]/revisions
  */
 export interface DiscourseRevisionResponse {
   post_id: number;
@@ -42,7 +42,7 @@ export interface DiscourseRevision {
  * Get the current version number for a topic from Discourse
  */
 export async function getCurrentTopicVersion(topicId: string): Promise<number> {
-  const response = await fetch(`/api/discourse/proposals/${topicId}/revisions`);
+  const response = await fetch(`/api/proposals/${topicId}/revisions`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch revisions: ${response.status}`);
@@ -101,9 +101,7 @@ export async function saveScreeningWithVersion(
   // Fetch revision timestamp if available
   let revisionTimestamp: Date | undefined;
   try {
-    const revResponse = await fetch(
-      `/api/discourse/proposals/${topicId}/revisions`
-    );
+    const revResponse = await fetch(`/api/proposals/${topicId}/revisions`);
     if (revResponse.ok) {
       const revData: DiscourseRevisionResponse = await revResponse.json();
       const revision = revData.revisions.find((r) => r.version === version);

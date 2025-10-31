@@ -66,9 +66,7 @@ export default function VersionHistory({
     setError("");
 
     try {
-      const response = await fetch(
-        `/api/discourse/proposals/${proposalId}/revisions`
-      );
+      const response = await fetch(`/api/proposals/${proposalId}/revisions`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch version history");

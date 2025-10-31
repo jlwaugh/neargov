@@ -55,18 +55,31 @@ export default function ProposalCard({
         padding: "1rem 1.25rem",
         cursor: "pointer",
         transition: "all 0.2s",
-        borderLeft: "3px solid transparent",
+        borderLeft: "3px solid #e5e7eb",
+        borderRadius: "0.5rem",
         textDecoration: "none",
         color: "inherit",
+        boxShadow: "0 0 0 2px #e5e7eb",
       }}
       onClick={handleCardClick}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderLeftColor = "#00ec97";
-        e.currentTarget.style.boxShadow = "0 4px 6px -1px rgb(0 0 0 / 0.1)";
+        e.currentTarget.style.boxShadow =
+          "0 0 0 2px #e5e7eb, 0 4px 6px -1px rgb(0 0 0 / 0.1)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderLeftColor = "transparent";
-        e.currentTarget.style.boxShadow = "none";
+        e.currentTarget.style.borderLeftColor = "#e5e7eb";
+        e.currentTarget.style.boxShadow = "0 0 0 2px #e5e7eb";
+      }}
+      tabIndex={0}
+      onFocus={(e) => {
+        e.currentTarget.style.borderLeftColor = "#00ec97";
+        e.currentTarget.style.boxShadow =
+          "0 0 0 2px rgba(0, 236, 151, 0.3), 0 0 0 2px #e5e7eb";
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderLeftColor = "#e5e7eb";
+        e.currentTarget.style.boxShadow = "0 0 0 2px #e5e7eb";
       }}
     >
       {/* Header: Title and Days Since Activity */}

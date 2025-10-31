@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import VersionHistory from "@/components/VersionHistory";
+import VersionSelector from "@/components/VersionSelector";
+import ProposalContent from "@/components/ProposalContent";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
 import { ScreeningButton } from "@/components/ScreeningButton";
-import { DiscussionSummary } from "@/components/DiscussionSummary";
 import { useNear } from "@/hooks/useNear";
 import type { Evaluation } from "@/types/evaluation";
+import { reconstructRevisionContent } from "@/lib/revisionContentUtils";
 
 interface ProposalDetail {
   id: number;
@@ -32,12 +33,34 @@ interface Reply {
   post_number: number;
 }
 
+interface Revision {
+  version: number;
+  created_at: string;
+  username: string;
+  edit_reason: string;
+  body_changes?: {
+    inline?: string;
+    side_by_side?: string;
+  };
+  title_changes?: {
+    inline?: string;
+    side_by_side?: string;
+  };
+}
+
 interface ScreeningData {
   evaluation: Evaluation;
   title: string;
   nearAccount: string;
   timestamp: string;
   revisionNumber: number;
+}
+
+interface SummaryResponse {
+  success: boolean;
+  summary: string;
+  cached?: boolean;
+  cacheAge?: number;
 }
 
 export default function ProposalDetail() {
@@ -51,6 +74,27 @@ export default function ProposalDetail() {
   const [currentRevision, setCurrentRevision] = useState<number>(1);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
 
+  // Version control state
+  const [revisions, setRevisions] = useState<Revision[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<number>(1);
+  const [showDiffHighlights, setShowDiffHighlights] = useState(false);
+  const [versionContent, setVersionContent] = useState<string>("");
+  const [versionDiffHtml, setVersionDiffHtml] = useState<string>("");
+
+  // Summary states
+  const [proposalSummary, setProposalSummary] = useState<string | null>(null);
+  const [proposalSummaryLoading, setProposalSummaryLoading] = useState(false);
+  const [revisionSummary, setRevisionSummary] = useState<string | null>(null);
+  const [revisionSummaryLoading, setRevisionSummaryLoading] = useState(false);
+  const [topicSummary, setTopicSummary] = useState<string | null>(null);
+  const [topicSummaryLoading, setTopicSummaryLoading] = useState(false);
+  const [replySummaries, setReplySummaries] = useState<Record<number, string>>(
+    {}
+  );
+  const [replySummaryLoading, setReplySummaryLoading] = useState<
+    Record<number, boolean>
+  >({});
+
   // Get wallet and account from useNear hook
   const { wallet, signedAccountId } = useNear();
 
@@ -62,30 +106,40 @@ export default function ProposalDetail() {
 
   const fetchProposal = async (proposalId: string) => {
     try {
-      const response = await fetch(`/api/discourse/proposals/${proposalId}`);
-
+      const response = await fetch(`/api/proposals/${proposalId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch proposal");
       }
 
       const data = await response.json();
       setProposal(data);
+      setVersionContent(data.content);
 
-      // Fetch current revision number from Discourse
       const revisionsResponse = await fetch(
-        `/api/discourse/proposals/${proposalId}/revisions`
+        `/api/proposals/${proposalId}/revisions`
       );
+
       if (revisionsResponse.ok) {
         const revisionsData = await revisionsResponse.json();
-        // Use current_version from the API response
         const latestRevision = revisionsData.current_version || 1;
         setCurrentRevision(latestRevision);
+        setSelectedVersion(latestRevision);
 
-        // Now fetch screening for the current revision
+        if (revisionsData.revisions && revisionsData.revisions.length > 0) {
+          setRevisions(revisionsData.revisions);
+
+          const currentRevisionData = revisionsData.revisions.find(
+            (r: Revision) => r.version === latestRevision
+          );
+          if (currentRevisionData?.body_changes?.inline) {
+            setVersionDiffHtml(currentRevisionData.body_changes.inline);
+          }
+        }
+
         fetchScreening(proposalId, latestRevision);
       } else {
-        // Fallback to revision 1 if we can't get revisions
         setCurrentRevision(1);
+        setSelectedVersion(1);
         fetchScreening(proposalId, 1);
       }
     } catch (err: any) {
@@ -118,6 +172,144 @@ export default function ProposalDetail() {
     }
   };
 
+  const handleVersionChange = async (version: number) => {
+    setSelectedVersion(version);
+    setRevisionSummary(null);
+    setShowDiffHighlights(false);
+
+    if (version === currentRevision) {
+      console.log("📄 Using current version");
+      setVersionContent(proposal?.content || "");
+
+      const latestRevision = revisions.find((r) => r.version === version);
+
+      if (latestRevision && latestRevision.body_changes?.inline) {
+        console.log("✅ Setting diff HTML for current version");
+        setVersionDiffHtml(latestRevision.body_changes.inline);
+      } else {
+        console.log("⚠️ No inline diff for current version");
+        setVersionDiffHtml("");
+      }
+    } else {
+      // Historical version - reconstruct
+      console.log("🔍 Reconstructing version:", version);
+
+      try {
+        const { content: reconstructedContent, title: reconstructedTitle } =
+          reconstructRevisionContent(
+            proposal?.content || "",
+            proposal?.title || "",
+            revisions,
+            version
+          );
+
+        setVersionContent(reconstructedContent);
+
+        // Get diff HTML for this version
+        const revision = revisions.find((r) => r.version === version);
+        if (revision && revision.body_changes?.inline) {
+          console.log("✅ Setting diff HTML for historical version");
+          setVersionDiffHtml(revision.body_changes.inline);
+        } else {
+          console.log("⚠️ No inline diff for this version");
+          setVersionDiffHtml("");
+        }
+      } catch (error) {
+        console.error("❌ Error reconstructing content:", error);
+        setVersionContent(proposal?.content || "");
+        setVersionDiffHtml("");
+      }
+    }
+
+    // Update screening
+    if (id) {
+      fetchScreening(id as string, version);
+    }
+  };
+
+  const fetchProposalSummary = async () => {
+    if (!id) return;
+    setProposalSummaryLoading(true);
+    try {
+      const response = await fetch(`/api/proposals/${id}/summarize`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data: SummaryResponse = await response.json();
+        setProposalSummary(data.summary);
+      } else {
+        console.error("Failed to fetch proposal summary");
+      }
+    } catch (error) {
+      console.error("Error fetching proposal summary:", error);
+    } finally {
+      setProposalSummaryLoading(false);
+    }
+  };
+
+  const fetchRevisionSummary = async () => {
+    if (!id) return;
+
+    setRevisionSummaryLoading(true);
+    try {
+      const response = await fetch(`/api/proposals/${id}/revisions/summarize`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data: SummaryResponse = await response.json();
+        setRevisionSummary(data.summary);
+      } else {
+        console.error("Failed to fetch revision summary");
+      }
+    } catch (error) {
+      console.error("Error fetching revision summary:", error);
+    } finally {
+      setRevisionSummaryLoading(false);
+    }
+  };
+
+  const fetchTopicSummary = async () => {
+    if (!id) return;
+    setTopicSummaryLoading(true);
+    try {
+      const response = await fetch(`/api/discourse/topics/${id}/summarize`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data: SummaryResponse = await response.json();
+        setTopicSummary(data.summary);
+      } else {
+        console.error("Failed to fetch topic summary");
+      }
+    } catch (error) {
+      console.error("Error fetching topic summary:", error);
+    } finally {
+      setTopicSummaryLoading(false);
+    }
+  };
+
+  const fetchReplySummary = async (replyId: number) => {
+    setReplySummaryLoading((prev) => ({ ...prev, [replyId]: true }));
+    try {
+      const response = await fetch(
+        `/api/discourse/replies/${replyId}/summarize`,
+        {
+          method: "POST",
+        }
+      );
+      if (response.ok) {
+        const data: SummaryResponse = await response.json();
+        setReplySummaries((prev) => ({ ...prev, [replyId]: data.summary }));
+      } else {
+        console.error("Failed to fetch reply summary");
+      }
+    } catch (error) {
+      console.error("Error fetching reply summary:", error);
+    } finally {
+      setReplySummaryLoading((prev) => ({ ...prev, [replyId]: false }));
+    }
+  };
+
   const getDaysSinceActivity = (lastPostedAt: string) => {
     const now = new Date();
     const lastActivity = new Date(lastPostedAt);
@@ -133,7 +325,9 @@ export default function ProposalDetail() {
   if (loading) {
     return (
       <div className="page-wrapper">
-        <div className="container">
+        <div
+          style={{ maxWidth: "1400px", margin: "0 auto", padding: "2rem 1rem" }}
+        >
           <div className="card">
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <p>Loading proposal...</p>
@@ -147,7 +341,9 @@ export default function ProposalDetail() {
   if (error || !proposal) {
     return (
       <div className="page-wrapper">
-        <div className="container">
+        <div
+          style={{ maxWidth: "1400px", margin: "0 auto", padding: "2rem 1rem" }}
+        >
           <div className="card">
             <div className="alert alert-error">
               <span className="alert-icon">⚠</span>
@@ -180,8 +376,8 @@ export default function ProposalDetail() {
               {proposal.title}
             </h1>
 
-            {/* Overall Pass/Fail */}
-            {screening && screening.revisionNumber === currentRevision && (
+            {/* Overall Pass/Fail - Top Right */}
+            {screening && screening.revisionNumber === selectedVersion && (
               <div
                 style={{
                   display: "flex",
@@ -271,7 +467,7 @@ export default function ProposalDetail() {
               </span>
             </div>
 
-            {/* Right side: Activity stats */}
+            {/* Right side: Activity stats - Bottom Right */}
             <div
               style={{
                 display: "flex",
@@ -299,6 +495,92 @@ export default function ProposalDetail() {
               </div>
             </div>
           </div>
+
+          {/* Proposal Summary Button */}
+          <div style={{ marginTop: "1rem" }}>
+            {!proposalSummary ? (
+              <button
+                onClick={fetchProposalSummary}
+                disabled={proposalSummaryLoading}
+                style={{
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.875rem",
+                  fontWeight: "600",
+                  color: "#2563eb",
+                  background: "white",
+                  border: "1px solid #2563eb",
+                  borderRadius: "6px",
+                  cursor: proposalSummaryLoading ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  opacity: proposalSummaryLoading ? 0.6 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!proposalSummaryLoading) {
+                    e.currentTarget.style.background = "#eff6ff";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "white";
+                }}
+              >
+                {proposalSummaryLoading
+                  ? "⏳ Generating..."
+                  : "✨ Summarize Proposal"}
+              </button>
+            ) : (
+              <div
+                style={{
+                  padding: "1rem",
+                  background: "#f0f9ff",
+                  border: "1px solid #bae6fd",
+                  borderRadius: "6px",
+                  marginTop: "0.5rem",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.875rem",
+                      fontWeight: "600",
+                      color: "#0369a1",
+                    }}
+                  >
+                    ✨ AI Summary
+                  </div>
+                  <button
+                    onClick={() => setProposalSummary(null)}
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#6b7280",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "0.25rem 0.5rem",
+                    }}
+                  >
+                    Hide
+                  </button>
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    lineHeight: "1.6",
+                    color: "#374151",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {proposalSummary}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* TWO-COLUMN LAYOUT */}
@@ -308,80 +590,48 @@ export default function ProposalDetail() {
             gridTemplateColumns: "2fr 1fr",
             gap: "2rem",
             alignItems: "start",
+            height: "calc(100vh - 250px)",
           }}
         >
-          {/* LEFT COLUMN - Main Content (scrollable) */}
+          {/* LEFT COLUMN */}
           <div
-            style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "2rem",
+              height: "100%",
+              overflowY: "auto",
+              paddingRight: "0.5rem",
+            }}
           >
             {/* Proposal Content - Collapsible */}
             <div className="card" style={{ position: "relative" }}>
-              {/* Content wrapper with max height when collapsed */}
-              <div
-                style={{
-                  maxHeight: isContentExpanded ? "none" : "400px",
-                  overflow: "hidden",
-                  position: "relative",
-                }}
-              >
-                <div
-                  style={{
-                    lineHeight: "1.8",
-                    color: "#374151",
-                  }}
-                  dangerouslySetInnerHTML={{ __html: proposal.content }}
-                />
+              {/* Version Selector */}
+              <VersionSelector
+                currentRevision={currentRevision}
+                selectedVersion={selectedVersion}
+                revisions={revisions}
+                onVersionChange={handleVersionChange}
+                showDiffHighlights={showDiffHighlights}
+                onToggleDiff={setShowDiffHighlights}
+                onSummarizeChanges={fetchRevisionSummary}
+                revisionSummary={revisionSummary}
+                revisionSummaryLoading={revisionSummaryLoading}
+                onHideSummary={() => setRevisionSummary(null)}
+                versionDiffHtml={versionDiffHtml}
+              />
+              {/* Proposal Content */}
+              <ProposalContent
+                content={
+                  showDiffHighlights && versionDiffHtml
+                    ? versionDiffHtml
+                    : versionContent || proposal?.content || ""
+                }
+                isExpanded={isContentExpanded}
+                onToggleExpand={setIsContentExpanded}
+              />
 
-                {/* Gradient overlay when collapsed */}
-                {!isContentExpanded && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: "100px",
-                      background:
-                        "linear-gradient(to bottom, transparent, white)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                )}
-              </div>
-
-              {/* Read More button (inline when collapsed) */}
-              {!isContentExpanded && (
-                <div
-                  style={{
-                    marginTop: "1rem",
-                    textAlign: "center",
-                  }}
-                >
-                  <button
-                    onClick={() => setIsContentExpanded(true)}
-                    style={{
-                      padding: "0.75rem 2rem",
-                      fontSize: "0.875rem",
-                      fontWeight: "600",
-                      color: "#374151",
-                      background: "#f3f4f6",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "#e5e7eb";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "#f3f4f6";
-                    }}
-                  >
-                    Read More
-                  </button>
-                </div>
-              )}
-
+              {/* Keep existing table styles */}
               <style jsx>{`
                 .card :global(table) {
                   width: 100%;
@@ -413,59 +663,109 @@ export default function ProposalDetail() {
               `}</style>
             </div>
 
-            {/* Hide button (fixed to viewport when expanded) */}
-            {isContentExpanded && (
-              <div
-                style={{
-                  position: "fixed",
-                  bottom: "20px",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  zIndex: 1000,
-                }}
-              >
-                <button
-                  onClick={() => setIsContentExpanded(false)}
-                  style={{
-                    padding: "0.75rem 2rem",
-                    fontSize: "0.875rem",
-                    fontWeight: "600",
-                    color: "#374151",
-                    background: "#f3f4f6",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    boxShadow:
-                      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#e5e7eb";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "#f3f4f6";
-                  }}
-                >
-                  Hide
-                </button>
-              </div>
-            )}
-
-            {/* Version History */}
-            <VersionHistory
-              proposalId={id as string}
-              title={proposal.title}
-              content={proposal.content}
-              nearAccount={signedAccountId || ""}
-              wallet={wallet}
-            />
-
-            {/* Replies Section */}
+            {/* Discussion Section */}
             {proposal.replies && proposal.replies.length > 0 && (
               <div className="card">
-                <h2 style={{ fontSize: "1.125rem", marginBottom: "1.5rem" }}>
-                  Replies ({proposal.replies.length})
-                </h2>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "1.5rem",
+                  }}
+                >
+                  <h2 style={{ fontSize: "1.125rem", margin: 0 }}>
+                    Replies ({proposal.replies.length})
+                  </h2>
+
+                  {/* Topic Summary Button */}
+                  {!topicSummary ? (
+                    <button
+                      onClick={fetchTopicSummary}
+                      disabled={topicSummaryLoading}
+                      style={{
+                        padding: "0.5rem 1rem",
+                        fontSize: "0.875rem",
+                        fontWeight: "600",
+                        color: "#059669",
+                        background: "white",
+                        border: "1px solid #059669",
+                        borderRadius: "6px",
+                        cursor: topicSummaryLoading ? "not-allowed" : "pointer",
+                        transition: "all 0.2s",
+                        opacity: topicSummaryLoading ? 0.6 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!topicSummaryLoading) {
+                          e.currentTarget.style.background = "#f0fdf4";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "white";
+                      }}
+                    >
+                      {topicSummaryLoading
+                        ? "⏳ Analyzing..."
+                        : "💬 Summarize Discussion"}
+                    </button>
+                  ) : null}
+                </div>
+
+                {/* Topic Summary Display */}
+                {topicSummary && (
+                  <div
+                    style={{
+                      padding: "1rem",
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: "6px",
+                      marginBottom: "1.5rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.875rem",
+                          fontWeight: "600",
+                          color: "#047857",
+                        }}
+                      >
+                        💬 Discussion Summary
+                      </div>
+                      <button
+                        onClick={() => setTopicSummary(null)}
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#6b7280",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: "0.25rem 0.5rem",
+                        }}
+                      >
+                        Hide
+                      </button>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.875rem",
+                        lineHeight: "1.6",
+                        color: "#374151",
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {topicSummary}
+                    </div>
+                  </div>
+                )}
+
                 <div
                   style={{
                     display: "flex",
@@ -523,9 +823,102 @@ export default function ProposalDetail() {
                         style={{
                           lineHeight: "1.6",
                           color: "#374151",
+                          marginBottom: "0.75rem",
                         }}
                         dangerouslySetInnerHTML={{ __html: reply.cooked }}
                       />
+
+                      {/* Reply Summary Button */}
+                      {!replySummaries[reply.id] ? (
+                        <button
+                          onClick={() => fetchReplySummary(reply.id)}
+                          disabled={replySummaryLoading[reply.id]}
+                          style={{
+                            padding: "0.375rem 0.75rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "600",
+                            color: "#ea580c",
+                            background: "white",
+                            border: "1px solid #ea580c",
+                            borderRadius: "4px",
+                            cursor: replySummaryLoading[reply.id]
+                              ? "not-allowed"
+                              : "pointer",
+                            transition: "all 0.2s",
+                            opacity: replySummaryLoading[reply.id] ? 0.6 : 1,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!replySummaryLoading[reply.id]) {
+                              e.currentTarget.style.background = "#fff7ed";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "white";
+                          }}
+                        >
+                          {replySummaryLoading[reply.id]
+                            ? "⏳ Summarizing..."
+                            : "💡 Summarize"}
+                        </button>
+                      ) : (
+                        <div
+                          style={{
+                            padding: "0.75rem",
+                            background: "#fff7ed",
+                            border: "1px solid #fed7aa",
+                            borderRadius: "4px",
+                            marginTop: "0.5rem",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: "0.5rem",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                fontWeight: "600",
+                                color: "#c2410c",
+                              }}
+                            >
+                              💡 Summary
+                            </div>
+                            <button
+                              onClick={() => {
+                                setReplySummaries((prev) => {
+                                  const newSummaries = { ...prev };
+                                  delete newSummaries[reply.id];
+                                  return newSummaries;
+                                });
+                              }}
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#6b7280",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: "0.25rem 0.5rem",
+                              }}
+                            >
+                              Hide
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              lineHeight: "1.6",
+                              color: "#374151",
+                              whiteSpace: "pre-wrap",
+                            }}
+                          >
+                            {replySummaries[reply.id]}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -533,44 +926,43 @@ export default function ProposalDetail() {
             )}
           </div>
 
-          {/* RIGHT COLUMN - Sidebar (sticky, scrollable) */}
+          {/* RIGHT COLUMN */}
           <div
             style={{
-              position: "sticky",
-              top: "1rem",
-              maxHeight: "calc(100vh - 2rem)",
-              overflowY: "auto",
               display: "flex",
               flexDirection: "column",
               gap: "1.5rem",
+              height: "100%",
+              overflowY: "auto",
+              paddingRight: "0.5rem",
             }}
           >
             {/* AI Screening Badge or Button */}
             {screeningChecked &&
               screening &&
-              screening.revisionNumber === currentRevision && (
+              screening.revisionNumber === selectedVersion && (
                 <ScreeningBadge screening={screening} />
               )}
 
             {screeningChecked &&
-              (!screening || screening.revisionNumber !== currentRevision) &&
+              (!screening || screening.revisionNumber !== selectedVersion) &&
               wallet &&
               signedAccountId && (
                 <ScreeningButton
                   topicId={id as string}
                   title={proposal.title}
-                  content={proposal.content}
+                  content={versionContent || proposal.content}
                   nearAccount={signedAccountId}
                   wallet={wallet}
-                  revisionNumber={currentRevision}
+                  revisionNumber={selectedVersion}
                   onScreeningComplete={() =>
-                    fetchScreening(id as string, currentRevision)
+                    fetchScreening(id as string, selectedVersion)
                   }
                 />
               )}
 
             {screeningChecked &&
-              (!screening || screening.revisionNumber !== currentRevision) &&
+              (!screening || screening.revisionNumber !== selectedVersion) &&
               (!wallet || !signedAccountId) && (
                 <div className="card">
                   <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
@@ -578,16 +970,6 @@ export default function ProposalDetail() {
                   </p>
                 </div>
               )}
-
-            {/* Discussion Summary - Only show if there are replies */}
-            {proposal.reply_count > 0 && (
-              <DiscussionSummary
-                proposalId={id as string}
-                replyCount={proposal.reply_count}
-              />
-            )}
-
-            {/* Future: Copilot component can go here */}
           </div>
         </div>
       </div>

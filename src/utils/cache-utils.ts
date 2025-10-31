@@ -21,11 +21,17 @@ class SimpleCache<T> {
   private cache: Map<string, CacheEntry<T>>;
   private ttl: number; // Time to live in milliseconds
   private name: string;
+  private maxSize: number;
 
-  constructor(ttlMinutes: number, name: string = "cache") {
+  constructor(
+    ttlMinutes: number,
+    name: string = "cache",
+    maxSize: number = 1000
+  ) {
     this.cache = new Map();
     this.ttl = ttlMinutes * 60 * 1000;
     this.name = name;
+    this.maxSize = maxSize;
   }
 
   /**
@@ -62,6 +68,15 @@ class SimpleCache<T> {
    * Store item in cache
    */
   set(key: string, data: T): void {
+    // Evict oldest entries if at max size
+    if (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+        console.log(`[${this.name}] Cache EVICTED oldest entry: ${oldestKey}`);
+      }
+    }
+
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -194,10 +209,20 @@ export const revisionCache = new SimpleCache<any>(15, "RevisionCache");
  * Build standardized cache keys to avoid collisions
  */
 export const CacheKeys = {
+  // Proposal summaries (by topic ID)
   proposal: (id: string) => `proposal:${id}`,
+
+  // Discussion summaries (by topic ID)
   discussion: (id: string) => `discussion:${id}`,
+
+  // Reply summaries (by post ID)
   reply: (id: string) => `reply:${id}`,
-  revision: (id: string) => `revision:${id}`,
+
+  // Proposal revision summaries (by topic ID)
+  proposalRevision: (topicId: string) => `proposal-revision:${topicId}`,
+
+  // Post revision summaries (by post ID)
+  postRevision: (postId: string) => `post-revision:${postId}`,
 };
 
 // ===================================================================

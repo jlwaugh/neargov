@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { discussionCache, CacheKeys } from "../../utils/cache-utils";
+import { discussionCache, CacheKeys } from "../../../../../utils/cache-utils";
 
 // TypeScript type definitions for Discourse API
 interface ActionSummary {
