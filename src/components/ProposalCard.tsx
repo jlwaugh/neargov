@@ -200,19 +200,8 @@ export default function ProposalCard({
               gap: "0.25rem",
             }}
           >
-            <span>💬</span>
+            <span>Replies</span>
             <span>{formatNumber(reply_count)}</span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.25rem",
-            }}
-          >
-            <span>👁</span>
-            <span>{formatNumber(views)}</span>
           </div>
         </div>
       </div>

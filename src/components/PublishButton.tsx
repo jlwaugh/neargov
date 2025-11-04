@@ -165,7 +165,7 @@ export const PublishButton = ({
           className="status-text"
           style={{ marginTop: "0.5rem", fontSize: "0.875rem" }}
         >
-          ✨ Your AI-screened proposal will be posted to the{" "}
+          Your AI-screened proposal will be posted to the{" "}
           <strong>Proposals</strong> category
         </p>
       </div>
@@ -175,17 +175,7 @@ export const PublishButton = ({
         disabled={publishing}
         className="btn btn-primary btn-full"
       >
-        {publishing ? (
-          <>
-            <span className="spinner">⏳</span>
-            Publishing...
-          </>
-        ) : (
-          <>
-            <span className="btn-icon">📝</span>
-            Publish to Discourse
-          </>
-        )}
+        {publishing ? <>Publishing...</> : <>Publish to Discourse</>}
       </button>
     </div>
   );

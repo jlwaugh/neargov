@@ -125,6 +125,6 @@ export function reconstructRevisionContent(
     }
   }
 
-  console.log(`✨ Final reconstructed content length: ${content.length} chars`);
+  console.log(`Final reconstructed content length: ${content.length} chars`);
   return { content, title };
 }

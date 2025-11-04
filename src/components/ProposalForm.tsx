@@ -50,17 +50,7 @@ export const ProposalForm = ({
         disabled={loading}
         className="btn btn-primary btn-full"
       >
-        {loading ? (
-          <>
-            <span className="spinner">⏳</span>
-            Evaluating proposal...
-          </>
-        ) : (
-          <>
-            <span className="btn-icon">✨</span>
-            Screen Proposal
-          </>
-        )}
+        {loading ? <>Evaluating proposal...</> : <>Screen Proposal</>}
       </button>
     </div>
   );

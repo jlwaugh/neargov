@@ -12,7 +12,6 @@ export const WalletStatus = ({
   if (loading) {
     return (
       <div className="feature-card" style={{ marginBottom: "1.5rem" }}>
-        <div className="feature-icon">⏳</div>
         <div>
           <h3 className="feature-title">Loading Wallet...</h3>
         </div>

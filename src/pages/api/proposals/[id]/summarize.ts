@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { proposalCache, CacheKeys } from "../../../../utils/cache-utils";
+import { stripHtml } from "@/lib/htmlUtils";
 
 /**
  * POST /api/discourse/proposals/[id]/summarize
@@ -75,14 +76,6 @@ export default async function handler(
     if (!proposalPost) {
       return res.status(404).json({ error: "Proposal post not found" });
     }
-
-    // Strip HTML
-    const stripHtml = (html: string): string => {
-      return html
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    };
 
     const proposalContent = stripHtml(proposalPost.cooked);
 

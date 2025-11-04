@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { revisionCache, CacheKeys } from "../../../../../utils/cache-utils";
+import { stripHtml } from "@/lib/htmlUtils";
 
 // TypeScript type definitions for Discourse API
 interface RevisionBodyChange {
@@ -146,13 +147,6 @@ export default async function handler(
     // ===================================================================
     // PREPARE REVISION DATA FOR AI
     // ===================================================================
-    const stripHtml = (html: string): string => {
-      return html
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    };
-
     // Build a comprehensive revision timeline
     const revisionTimeline = revisions
       .map((rev, index) => {
@@ -176,13 +170,34 @@ export default async function handler(
 
         // Add body changes
         if (rev.body_changes?.inline) {
-          const cleanDiff = stripHtml(rev.body_changes.inline);
-          // Truncate very long diffs
-          const truncatedDiff =
-            cleanDiff.length > 1000
-              ? cleanDiff.substring(0, 1000) + "\n[... diff truncated ...]"
-              : cleanDiff;
-          parts.push(`- **Content Changes:**\n${truncatedDiff}`);
+          // Try to use side-by-side markdown first (clearer before/after)
+          if (rev.body_changes.side_by_side_markdown) {
+            const cleanDiff = stripHtml(rev.body_changes.side_by_side_markdown);
+            const truncatedDiff =
+              cleanDiff.length > 1500
+                ? cleanDiff.substring(0, 1500) + "\n[... diff truncated ...]"
+                : cleanDiff;
+            parts.push(
+              `- **Content Changes (Before/After):**\n${truncatedDiff}`
+            );
+          } else if (rev.body_changes.side_by_side) {
+            const cleanDiff = stripHtml(rev.body_changes.side_by_side);
+            const truncatedDiff =
+              cleanDiff.length > 1500
+                ? cleanDiff.substring(0, 1500) + "\n[... diff truncated ...]"
+                : cleanDiff;
+            parts.push(
+              `- **Content Changes (Before/After):**\n${truncatedDiff}`
+            );
+          } else {
+            // Fallback to inline diff
+            const cleanDiff = stripHtml(rev.body_changes.inline);
+            const truncatedDiff =
+              cleanDiff.length > 1000
+                ? cleanDiff.substring(0, 1000) + "\n[... diff truncated ...]"
+                : cleanDiff;
+            parts.push(`- **Content Changes:**\n${truncatedDiff}`);
+          }
         }
 
         return parts.join("\n");
@@ -216,28 +231,38 @@ export default async function handler(
 **Revision Timeline:**
 ${truncatedTimeline}
 
+**CRITICAL INSTRUCTIONS FOR FACTUAL CHANGES:**
+When factual claims change (numbers, dates, names, commitments, scope, timelines), you MUST:
+1. Identify what it was BEFORE and what it is AFTER
+2. State both values explicitly: "Changed from X to Y"
+3. Assess the impact of the change
+4. Classify as SUBSTANTIVE regardless of how the author describes it
+
+A change is substantive if it affects: meaning, scope, commitments, decision factors, or verifiable facts.
+A change is minor if it only affects: grammar, spelling, formatting, or clarity without changing facts.
+
 Provide a comprehensive revision analysis (200-400 words) covering:
 
-**Summary of Changes:** [High-level overview of what was modified across all revisions]
+**Summary of Changes:** [High-level overview. For factual changes, state BEFORE → AFTER.]
 
 **Revision Breakdown:**
-- [Describe each major revision and its purpose]
-- [Note if changes were substantive vs. minor corrections]
-- [Highlight any title changes]
+- [Describe each major revision]
+- [Classify as substantive vs. minor]
+- [For factual changes: "Changed from X to Y" and explain impact]
 
 **Nature of Edits:**
-- **Substantive Changes:** [Content that affects meaning, scope, or decision factors]
-- **Clarifications:** [Additions or rewording for better understanding]
-- **Corrections:** [Fixes to errors, typos, or formatting]
-- **Responses to Feedback:** [Changes that appear to address community concerns]
+- **Substantive Changes:** [Changes to facts, numbers, dates, commitments, scope, or policies. Include before/after values.]
+- **Clarifications:** [Rewording that improves clarity without changing facts]
+- **Minor Corrections:** [Grammar, spelling, or formatting only]
+- **Responses to Feedback:** [Changes addressing community concerns]
 
-**Timing & Patterns:** [When edits occurred - immediate fixes vs. later substantial changes]
+**Timing & Patterns:** [When edits occurred and what this suggests]
 
-**Significance:** [Overall assessment - are these minor tweaks or major revisions that warrant re-reading?]
+**Significance:** [Minor tweaks or major revisions warranting re-reading?]
 
-**Recommendation:** [Should stakeholders review these changes? Do they materially affect the proposal?]
+**Recommendation:** [Should stakeholders review? Do changes materially affect the proposal?]
 
-Be specific about what changed. If revisions are minimal (typos, formatting), state that clearly. If substantive, highlight what decision-makers need to reconsider.`;
+Be specific. If truly minor, state that. If substantive, highlight what decision-makers need to reconsider.`;
 
     const summaryResponse = await fetch(
       "https://cloud-api.near.ai/v1/chat/completions",

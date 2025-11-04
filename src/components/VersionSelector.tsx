@@ -1,3 +1,5 @@
+import { Markdown } from "@/components/Markdown";
+
 interface Revision {
   version: number;
   created_at: string;
@@ -149,8 +151,8 @@ export default function VersionSelector({
             }}
           >
             {revisionSummaryLoading
-              ? "⏳ Analyzing..."
-              : "📜 Summarize All Revisions"}
+              ? "Analyzing..."
+              : "Summarize All Revisions"}
           </button>
         )}
       </div>
@@ -174,7 +176,7 @@ export default function VersionSelector({
         </div>
       )}
 
-      {/* Revision Summary */}
+      {/* Revision Summary with Markdown Rendering */}
       {revisionSummary && (
         <div
           style={{
@@ -200,7 +202,7 @@ export default function VersionSelector({
                 color: "#6b21a8",
               }}
             >
-              📜 Revision History Summary
+              Revision History Summary
             </div>
             <button
               onClick={onHideSummary}
@@ -216,16 +218,14 @@ export default function VersionSelector({
               Hide
             </button>
           </div>
-          <div
+          <Markdown
+            content={revisionSummary}
             style={{
-              fontSize: "0.75rem",
+              fontSize: "0.875rem",
               lineHeight: "1.6",
               color: "#374151",
-              whiteSpace: "pre-wrap",
             }}
-          >
-            {revisionSummary}
-          </div>
+          />
         </div>
       )}
     </div>

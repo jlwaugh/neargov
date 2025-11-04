@@ -4,6 +4,7 @@ import VersionSelector from "@/components/VersionSelector";
 import ProposalContent from "@/components/ProposalContent";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
 import { ScreeningButton } from "@/components/ScreeningButton";
+import { Markdown } from "@/components/Markdown";
 import { useNear } from "@/hooks/useNear";
 import type { Evaluation } from "@/types/evaluation";
 import { reconstructRevisionContent } from "@/lib/revisionContentUtils";
@@ -73,6 +74,7 @@ export default function ProposalDetail() {
   const [screeningChecked, setScreeningChecked] = useState(false);
   const [currentRevision, setCurrentRevision] = useState<number>(1);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
+  const [showRevisions, setShowRevisions] = useState(false);
 
   // Version control state
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -495,92 +497,6 @@ export default function ProposalDetail() {
               </div>
             </div>
           </div>
-
-          {/* Proposal Summary Button */}
-          <div style={{ marginTop: "1rem" }}>
-            {!proposalSummary ? (
-              <button
-                onClick={fetchProposalSummary}
-                disabled={proposalSummaryLoading}
-                style={{
-                  padding: "0.5rem 1rem",
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  color: "#2563eb",
-                  background: "white",
-                  border: "1px solid #2563eb",
-                  borderRadius: "6px",
-                  cursor: proposalSummaryLoading ? "not-allowed" : "pointer",
-                  transition: "all 0.2s",
-                  opacity: proposalSummaryLoading ? 0.6 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!proposalSummaryLoading) {
-                    e.currentTarget.style.background = "#eff6ff";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "white";
-                }}
-              >
-                {proposalSummaryLoading
-                  ? "⏳ Generating..."
-                  : "✨ Summarize Proposal"}
-              </button>
-            ) : (
-              <div
-                style={{
-                  padding: "1rem",
-                  background: "#f0f9ff",
-                  border: "1px solid #bae6fd",
-                  borderRadius: "6px",
-                  marginTop: "0.5rem",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "0.875rem",
-                      fontWeight: "600",
-                      color: "#0369a1",
-                    }}
-                  >
-                    ✨ AI Summary
-                  </div>
-                  <button
-                    onClick={() => setProposalSummary(null)}
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#6b7280",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "0.25rem 0.5rem",
-                    }}
-                  >
-                    Hide
-                  </button>
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    lineHeight: "1.6",
-                    color: "#374151",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {proposalSummary}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* TWO-COLUMN LAYOUT */}
@@ -604,23 +520,26 @@ export default function ProposalDetail() {
               paddingRight: "0.5rem",
             }}
           >
-            {/* Proposal Content - Collapsible */}
+            {/* Proposal Content */}
             <div className="card" style={{ position: "relative" }}>
-              {/* Version Selector */}
-              <VersionSelector
-                currentRevision={currentRevision}
-                selectedVersion={selectedVersion}
-                revisions={revisions}
-                onVersionChange={handleVersionChange}
-                showDiffHighlights={showDiffHighlights}
-                onToggleDiff={setShowDiffHighlights}
-                onSummarizeChanges={fetchRevisionSummary}
-                revisionSummary={revisionSummary}
-                revisionSummaryLoading={revisionSummaryLoading}
-                onHideSummary={() => setRevisionSummary(null)}
-                versionDiffHtml={versionDiffHtml}
-              />
-              {/* Proposal Content */}
+              {/* Version Selector - conditionally rendered */}
+              {showRevisions && (
+                <VersionSelector
+                  currentRevision={currentRevision}
+                  selectedVersion={selectedVersion}
+                  revisions={revisions}
+                  onVersionChange={handleVersionChange}
+                  showDiffHighlights={showDiffHighlights}
+                  onToggleDiff={setShowDiffHighlights}
+                  onSummarizeChanges={fetchRevisionSummary}
+                  revisionSummary={revisionSummary}
+                  revisionSummaryLoading={revisionSummaryLoading}
+                  onHideSummary={() => setRevisionSummary(null)}
+                  versionDiffHtml={versionDiffHtml}
+                />
+              )}
+
+              {/* Proposal Content with integrated summary button and show revisions toggle */}
               <ProposalContent
                 content={
                   showDiffHighlights && versionDiffHtml
@@ -629,6 +548,14 @@ export default function ProposalDetail() {
                 }
                 isExpanded={isContentExpanded}
                 onToggleExpand={setIsContentExpanded}
+                proposalSummary={proposalSummary}
+                proposalSummaryLoading={proposalSummaryLoading}
+                onFetchProposalSummary={fetchProposalSummary}
+                onHideProposalSummary={() => setProposalSummary(null)}
+                showRevisions={showRevisions}
+                onToggleRevisions={() => setShowRevisions(!showRevisions)}
+                hasRevisions={revisions.length > 1}
+                revisionCount={revisions.length}
               />
 
               {/* Keep existing table styles */}
@@ -705,8 +632,8 @@ export default function ProposalDetail() {
                       }}
                     >
                       {topicSummaryLoading
-                        ? "⏳ Analyzing..."
-                        : "💬 Summarize Discussion"}
+                        ? "Analyzing..."
+                        : "Summarize Discussion"}
                     </button>
                   ) : null}
                 </div>
@@ -737,7 +664,7 @@ export default function ProposalDetail() {
                           color: "#047857",
                         }}
                       >
-                        💬 Discussion Summary
+                        Discussion Summary
                       </div>
                       <button
                         onClick={() => setTopicSummary(null)}
@@ -753,16 +680,14 @@ export default function ProposalDetail() {
                         Hide
                       </button>
                     </div>
-                    <div
+                    <Markdown
+                      content={topicSummary}
                       style={{
                         fontSize: "0.875rem",
                         lineHeight: "1.6",
                         color: "#374151",
-                        whiteSpace: "pre-wrap",
                       }}
-                    >
-                      {topicSummary}
-                    </div>
+                    />
                   </div>
                 )}
 
@@ -857,8 +782,8 @@ export default function ProposalDetail() {
                           }}
                         >
                           {replySummaryLoading[reply.id]
-                            ? "⏳ Summarizing..."
-                            : "💡 Summarize"}
+                            ? "Summarizing..."
+                            : "Summarize"}
                         </button>
                       ) : (
                         <div
@@ -885,7 +810,7 @@ export default function ProposalDetail() {
                                 color: "#c2410c",
                               }}
                             >
-                              💡 Summary
+                              Summary
                             </div>
                             <button
                               onClick={() => {
@@ -907,16 +832,14 @@ export default function ProposalDetail() {
                               Hide
                             </button>
                           </div>
-                          <div
+                          <Markdown
+                            content={replySummaries[reply.id]}
                             style={{
                               fontSize: "0.75rem",
                               lineHeight: "1.6",
                               color: "#374151",
-                              whiteSpace: "pre-wrap",
                             }}
-                          >
-                            {replySummaries[reply.id]}
-                          </div>
+                          />
                         </div>
                       )}
                     </div>

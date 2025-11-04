@@ -1,50 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import MarkdownIt from "markdown-it";
+import DOMPurify from "dompurify";
 
 interface DiscussionSummaryProps {
   proposalId: string;
   replyCount: number;
-}
-
-// Simple markdown to HTML converter
-function parseMarkdown(markdown: string): string {
-  let html = markdown;
-
-  // Headers
-  html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
-  html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
-  html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
-
-  // Bold
-  html = html.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-
-  // Italic
-  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-  // Line breaks and paragraphs
-  html = html.replace(/\n\n/g, "</p><p>");
-  html = html.replace(/\n/g, "<br>");
-
-  // Lists - wrap consecutive <li> tags
-  html = html.replace(/^\- (.+)$/gim, "<li>$1</li>");
-  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, (match) => {
-    if (!match.includes("<ul>")) {
-      return "<ul>" + match + "</ul>";
-    }
-    return match;
-  });
-
-  // Wrap in paragraphs
-  html = `<p>${html}</p>`;
-
-  // Clean up empty paragraphs
-  html = html.replace(/<p><\/p>/g, "");
-  html = html.replace(/<p>\s*<\/p>/g, "");
-
-  return html;
 }
 
 export function DiscussionSummary({
@@ -55,6 +15,21 @@ export function DiscussionSummary({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showSummary, setShowSummary] = useState(false);
+
+  // Initialize markdown-it
+  const md = useMemo(() => {
+    return new MarkdownIt({
+      html: true,
+      linkify: true,
+      typographer: true,
+    });
+  }, []);
+
+  const renderedSummary = useMemo(() => {
+    if (!summary) return "";
+    const rendered = md.render(summary);
+    return DOMPurify.sanitize(rendered);
+  }, [summary, md]);
 
   const generateSummary = async () => {
     if (summary) {
@@ -166,7 +141,7 @@ export function DiscussionSummary({
               lineHeight: "1.8",
               color: "#374151",
             }}
-            dangerouslySetInnerHTML={{ __html: parseMarkdown(summary) }}
+            dangerouslySetInnerHTML={{ __html: renderedSummary }}
           />
 
           <div
@@ -178,7 +153,7 @@ export function DiscussionSummary({
               color: "#6b7280",
             }}
           >
-            💡 This is an AI-generated summary. Read the full discussion for
+            This is an AI-generated summary. Read the full discussion for
             complete context.
           </div>
         </div>

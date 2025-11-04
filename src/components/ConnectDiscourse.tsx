@@ -91,7 +91,6 @@ export const ConnectDiscourse = ({
           Connect your NEAR wallet to your Discourse account to publish
         </p>
         <button onClick={startLinking} className="btn btn-primary btn-full">
-          <span className="btn-icon">🔗</span>
           Link Discourse Account
         </button>
       </div>
@@ -131,17 +130,7 @@ export const ConnectDiscourse = ({
           disabled={step === "completing" || !payload.trim()}
           className="btn btn-primary btn-full"
         >
-          {step === "completing" ? (
-            <>
-              <span className="spinner">⏳</span>
-              Linking...
-            </>
-          ) : (
-            <>
-              <span className="btn-icon">🔐</span>
-              Complete Link
-            </>
-          )}
+          {step === "completing" ? <>Linking...</> : <>Complete Link</>}
         </button>
       </div>
     );

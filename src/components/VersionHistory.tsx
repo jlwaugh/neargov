@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Evaluation } from "@/types/evaluation";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
 import { reconstructRevisionContent } from "@/lib/revisionContentUtils";
+import { sanitizeHtml, stripHtml } from "@/lib/htmlUtils";
 
 interface Revision {
   version: number;
@@ -124,15 +125,6 @@ export default function VersionHistory({
     }
 
     setScreeningResults(newResults);
-  };
-
-  const stripHtml = (html: string): string => {
-    if (typeof document !== "undefined") {
-      const div = document.createElement("div");
-      div.innerHTML = html;
-      return div.textContent || div.innerText || "";
-    }
-    return html.replace(/<[^>]*>/g, "");
   };
 
   const handleScreenRevision = async (revisionNumber: number) => {
@@ -323,7 +315,7 @@ export default function VersionHistory({
             <div
               style={{ marginTop: "0.5rem" }}
               dangerouslySetInnerHTML={{
-                __html: revision.title_changes.inline,
+                __html: sanitizeHtml(revision.title_changes.inline),
               }}
             />
           </div>
@@ -342,7 +334,9 @@ export default function VersionHistory({
                 backgroundColor: "#f9fafb",
                 borderRadius: "0.5rem",
               }}
-              dangerouslySetInnerHTML={{ __html: revision.body_changes.inline }}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeHtml(revision.body_changes.inline),
+              }}
             />
           </div>
         )}
