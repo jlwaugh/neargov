@@ -1,0 +1,437 @@
+/**
+ * NEAR AI Cloud Agent API Route using AG-UI Protocol
+ */
+
+import type { NextApiRequest, NextApiResponse } from "next";
+import { EventType, type AGUIEvent } from "@/types/agui-events";
+
+// Tool definitions
+const TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "write_proposal",
+      description: [
+        "Write or edit a NEAR governance proposal.",
+        "Use markdown formatting. Include sections: Objectives, Budget, Timeline, KPIs.",
+        "Write the FULL proposal, even when changing only a few words.",
+        "Make edits minimal and targeted to address specific screening criteria.",
+      ].join(" "),
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "The proposal title",
+          },
+          content: {
+            type: "string",
+            description: "The full proposal content in markdown",
+          },
+        },
+        required: ["title", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "screen_proposal",
+      description:
+        "Screen a proposal against NEAR governance criteria. Returns evaluation with pass/fail for each criterion.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "The proposal title",
+          },
+          content: {
+            type: "string",
+            description: "The proposal content",
+          },
+        },
+        required: ["title", "content"],
+      },
+    },
+  },
+];
+
+// System prompt builder
+function getSystemPrompt(currentState: any) {
+  return `You are a NEAR governance proposal assistant. You help users write high-quality proposals that meet NEAR's criteria.
+
+**Current Proposal State:**
+Title: ${currentState.title || "(empty)"}
+Content: ${currentState.content || "(empty)"}
+
+**CRITICAL INSTRUCTIONS:**
+- When the user asks you to write, generate, create, or add ANY content to the proposal, you MUST use the write_proposal tool
+- When asked to "generate title", "add title", "write content" → use write_proposal tool immediately
+- DO NOT just chat about what you would write - actually write it using the tool
+- If title is empty and user asks for content, generate a title too
+- If content is empty, generate full proposal content
+
+**NEAR Proposal Criteria:**
+1. **Complete**: Objectives, budget breakdown, timeline, measurable KPIs
+2. **Legible**: Clear, well-structured, error-free, professionally formatted
+3. **Consistent**: No contradictions in budget, timeline, or scope
+4. **Genuine**: Authentic intent, realistic expectations, transparent about challenges
+5. **Compliant**: Follows NEAR governance rules and community standards
+6. **Justified**: Strong rationale for funding amount and approach
+
+**Your Tasks:**
+- To screen: use screen_proposal tool
+- To write/generate/create/add content: use write_proposal tool IMMEDIATELY
+- Base edits on screening results - fix specific failing criteria
+- Keep changes minimal and targeted
+- After calling write_proposal, just briefly explain what you did (1-2 sentences)
+
+${
+  currentState.evaluation
+    ? `
+**Last Screening Results:**
+Overall Pass: ${currentState.evaluation.overallPass ? "YES" : "NO"}
+Failed Criteria: ${
+        Object.entries(currentState.evaluation)
+          .filter(
+            ([key, val]: [string, any]) =>
+              key !== "overallPass" &&
+              key !== "summary" &&
+              key !== "alignment" &&
+              typeof val === "object" &&
+              val.pass === false
+          )
+          .map(([key]) => key)
+          .join(", ") || "None"
+      }
+`
+    : ""
+}`;
+}
+
+// Screen proposal using existing API
+async function screenProposal(title: string, content: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const response = await fetch(`${baseUrl}/api/screen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, proposal: content }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Screening failed");
+  }
+
+  const data = await response.json();
+  return data.evaluation;
+}
+
+// Generate unique IDs
+function generateId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Helper to simulate streaming delays
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  // Only allow POST
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const { messages, threadId, runId: clientRunId, state } = req.body;
+
+    console.log("Agent API called with:", {
+      messagesCount: messages?.length,
+      hasState: !!state,
+      hasApiKey: !!process.env.NEAR_AI_CLOUD_API_KEY,
+    });
+
+    // Check for API key
+    if (!process.env.NEAR_AI_CLOUD_API_KEY) {
+      return res
+        .status(500)
+        .json({ error: "Missing NEAR_AI_CLOUD_API_KEY environment variable" });
+    }
+
+    // Generate IDs
+    const thread = threadId || generateId("thread");
+    const run = clientRunId || generateId("run");
+
+    // Current state from frontend
+    const currentState = state || { title: "", content: "", evaluation: null };
+
+    // Build conversation
+    const conversationMessages = [
+      {
+        role: "system",
+        content: getSystemPrompt(currentState),
+      },
+      ...messages,
+    ];
+
+    // Detect user intent
+    const lastUserMessage =
+      messages[messages.length - 1]?.content?.toLowerCase() || "";
+    const isWriteIntent =
+      lastUserMessage.includes("write") ||
+      lastUserMessage.includes("generate") ||
+      lastUserMessage.includes("create") ||
+      lastUserMessage.includes("add") ||
+      lastUserMessage.includes("improve") ||
+      lastUserMessage.includes("edit");
+
+    const isScreenIntent =
+      lastUserMessage.includes("screen") ||
+      lastUserMessage.includes("evaluate") ||
+      lastUserMessage.includes("check") ||
+      lastUserMessage.includes("review");
+
+    // Smart tool choice
+    let toolChoice: any = "auto";
+
+    if (isWriteIntent && !isScreenIntent) {
+      toolChoice = {
+        type: "function",
+        function: { name: "write_proposal" },
+      };
+    } else if (isScreenIntent && !isWriteIntent) {
+      toolChoice = {
+        type: "function",
+        function: { name: "screen_proposal" },
+      };
+    }
+
+    console.log("Tool choice:", toolChoice);
+
+    // Direct fetch to NEAR AI Cloud (NON-STREAMING)
+    const nearAIResponse = await fetch(
+      "https://cloud-api.near.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEAR_AI_CLOUD_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-oss-120b",
+          messages: conversationMessages,
+          tools: TOOLS,
+          tool_choice: toolChoice,
+          stream: false,
+        }),
+      }
+    );
+
+    console.log("NEAR AI Response status:", nearAIResponse.status);
+
+    if (!nearAIResponse.ok) {
+      const errorText = await nearAIResponse.text();
+      console.error("NEAR AI API error:", nearAIResponse.status, errorText);
+      return res.status(500).json({
+        error: `NEAR AI API error: ${nearAIResponse.status}`,
+        details: errorText,
+      });
+    }
+
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // Helper to write events
+    const writeEvent = (event: AGUIEvent) => {
+      const data = JSON.stringify(event);
+      res.write(`data: ${data}\n\n`);
+    };
+
+    // Emit RUN_STARTED
+    writeEvent({
+      type: EventType.RUN_STARTED,
+      threadId: thread,
+      runId: run,
+      timestamp: Date.now(),
+    });
+
+    // Parse non-streaming response
+    const data = await nearAIResponse.json();
+    const message = data.choices?.[0]?.message;
+
+    if (!message) {
+      writeEvent({
+        type: EventType.RUN_ERROR,
+        message: "No message in response",
+        code: "NO_MESSAGE",
+        timestamp: Date.now(),
+      });
+
+      writeEvent({
+        type: EventType.RUN_FINISHED,
+        threadId: thread,
+        runId: run,
+        timestamp: Date.now(),
+      });
+
+      return res.end();
+    }
+
+    // Handle text content
+    if (message.content) {
+      const messageId = generateId("msg");
+
+      writeEvent({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId,
+        role: "assistant",
+        timestamp: Date.now(),
+      });
+
+      // Simulate streaming by sending content in chunks
+      const content = message.content;
+      const chunkSize = 50;
+      for (let i = 0; i < content.length; i += chunkSize) {
+        writeEvent({
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId,
+          delta: content.slice(i, i + chunkSize),
+          timestamp: Date.now(),
+        });
+        await sleep(15); // Small delay for UX
+      }
+
+      writeEvent({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId,
+        timestamp: Date.now(),
+      });
+    }
+
+    // Handle tool calls
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      writeEvent({
+        type: EventType.STEP_STARTED,
+        stepName: "execute_tools",
+        timestamp: Date.now(),
+      });
+
+      for (const toolCall of message.tool_calls) {
+        const toolCallId = toolCall.id;
+        const toolName = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments);
+
+        // Emit tool call start
+        writeEvent({
+          type: EventType.TOOL_CALL_START,
+          toolCallId,
+          toolCallName: toolName,
+          parentMessageId: null,
+          timestamp: Date.now(),
+        });
+
+        // Simulate streaming args
+        const argsStr = JSON.stringify(args);
+        const chunkSize = 40;
+        for (let i = 0; i < argsStr.length; i += chunkSize) {
+          writeEvent({
+            type: EventType.TOOL_CALL_ARGS,
+            toolCallId,
+            delta: argsStr.slice(i, i + chunkSize),
+            timestamp: Date.now(),
+          });
+          await sleep(10);
+        }
+
+        writeEvent({
+          type: EventType.TOOL_CALL_END,
+          toolCallId,
+          timestamp: Date.now(),
+        });
+
+        // Execute tool
+        let result: any;
+
+        if (toolName === "screen_proposal") {
+          result = await screenProposal(args.title, args.content);
+
+          writeEvent({
+            type: EventType.STATE_DELTA,
+            delta: [
+              {
+                op: "replace",
+                path: "/evaluation",
+                value: result,
+              },
+            ],
+            timestamp: Date.now(),
+          });
+        } else if (toolName === "write_proposal") {
+          result = {
+            title: args.title,
+            content: args.content,
+            status: "pending_confirmation",
+          };
+
+          // Send state delta for proposal updates
+          writeEvent({
+            type: EventType.STATE_DELTA,
+            delta: [
+              {
+                op: "replace",
+                path: "/title",
+                value: args.title,
+              },
+              {
+                op: "replace",
+                path: "/content",
+                value: args.content,
+              },
+            ],
+            timestamp: Date.now(),
+          });
+        }
+
+        // Emit tool result
+        writeEvent({
+          type: EventType.TOOL_CALL_RESULT,
+          messageId: generateId("tool_result"),
+          toolCallId,
+          content: JSON.stringify(result, null, 2),
+          role: "tool",
+          timestamp: Date.now(),
+        });
+      }
+
+      writeEvent({
+        type: EventType.STEP_FINISHED,
+        stepName: "execute_tools",
+        timestamp: Date.now(),
+      });
+    }
+
+    // Emit RUN_FINISHED
+    writeEvent({
+      type: EventType.RUN_FINISHED,
+      threadId: thread,
+      runId: run,
+      timestamp: Date.now(),
+    });
+
+    res.end();
+  } catch (error: any) {
+    console.error("Agent error:", error);
+    const errorEvent: AGUIEvent = {
+      type: EventType.RUN_ERROR,
+      message: error.message || "Unknown error",
+      code: "AGENT_ERROR",
+      timestamp: Date.now(),
+    };
+    res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+    res.end();
+  }
+}

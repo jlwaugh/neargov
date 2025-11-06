@@ -176,7 +176,7 @@ Be extremely concise. If the reply is very short or simple (like "I agree" or "+
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "Qwen/Qwen3-30B-A3B-Instruct-2507",
+          model: "deepseek-ai/DeepSeek-V3.1",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.3, // Very low for focused, brief output
           max_tokens: 250, // Short summaries only

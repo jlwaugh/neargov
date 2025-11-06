@@ -44,6 +44,49 @@ export default function ProposalContent({
 
   return (
     <>
+      {/* Sticky Hide button at top when expanded */}
+      {isExpanded && (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+            background: "white",
+            padding: "0.75rem 0",
+            marginBottom: "1rem",
+            borderBottom: "1px solid #e5e7eb",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <button
+            onClick={() => onToggleExpand(false)}
+            style={{
+              padding: "0.5rem 1.5rem",
+              fontSize: "0.875rem",
+              fontWeight: "600",
+              color: "#374151",
+              background: "white",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#f9fafb";
+              e.currentTarget.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.15)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "white";
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
+            }}
+          >
+            ↑ Hide Full Content
+          </button>
+        </div>
+      )}
+
       {/* Top Controls - Summary and Revisions buttons side by side */}
       <div
         style={{
@@ -55,37 +98,56 @@ export default function ProposalContent({
         }}
       >
         {/* Left side - Proposal Summary Button */}
-        <div style={{ flex: "0 1 auto" }}>
-          {!proposalSummary ? (
-            <button
-              onClick={onFetchProposalSummary}
-              disabled={proposalSummaryLoading}
-              style={{
-                padding: "0.5rem 1rem",
-                fontSize: "0.875rem",
-                fontWeight: "600",
-                color: "#2563eb",
-                background: "white",
-                border: "1px solid #2563eb",
-                borderRadius: "6px",
-                cursor: proposalSummaryLoading ? "not-allowed" : "pointer",
-                transition: "all 0.2s",
-                opacity: proposalSummaryLoading ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!proposalSummaryLoading) {
-                  e.currentTarget.style.background = "#eff6ff";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "white";
-              }}
-            >
-              {proposalSummaryLoading
-                ? "⏳ Generating..."
-                : "✨ Summarize Proposal"}
-            </button>
-          ) : null}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+          }}
+        >
+          <h2 style={{ fontSize: "1.125rem", margin: 0 }}>Content</h2>
+          <button
+            onClick={() => {
+              if (proposalSummary) {
+                onHideProposalSummary();
+              } else {
+                onFetchProposalSummary();
+              }
+            }}
+            disabled={proposalSummaryLoading}
+            style={{
+              padding: "0.5rem 1rem",
+              fontSize: "0.875rem",
+              fontWeight: "600",
+              color: proposalSummary ? "#6b7280" : "white",
+              background: proposalSummary ? "white" : "#4B4BFD",
+              border: proposalSummary
+                ? "1px solid #d1d5db"
+                : "1px solid #4B4BFD",
+              borderRadius: "5px",
+              cursor: proposalSummaryLoading ? "not-allowed" : "pointer",
+              transition: "all 0.2s",
+              opacity: proposalSummaryLoading ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!proposalSummaryLoading) {
+                e.currentTarget.style.background = proposalSummary
+                  ? "#f9fafb"
+                  : "#7272FF";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = proposalSummary
+                ? "white"
+                : "#4B4BFD";
+            }}
+          >
+            {proposalSummaryLoading
+              ? "Generating..."
+              : proposalSummary
+              ? "Hide Summary"
+              : "Summarize"}
+          </button>
         </div>
 
         {/* Right side - Show Revisions Button */}
@@ -130,34 +192,13 @@ export default function ProposalContent({
         >
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              fontSize: "0.875rem",
+              fontWeight: "600",
+              color: "#0369a1",
               marginBottom: "0.5rem",
             }}
           >
-            <div
-              style={{
-                fontSize: "0.875rem",
-                fontWeight: "600",
-                color: "#0369a1",
-              }}
-            >
-              AI Summary
-            </div>
-            <button
-              onClick={onHideProposalSummary}
-              style={{
-                fontSize: "0.75rem",
-                color: "#6b7280",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: "0.25rem 0.5rem",
-              }}
-            >
-              Hide
-            </button>
+            AI Summary
           </div>
           <Markdown
             content={proposalSummary}
@@ -173,7 +214,7 @@ export default function ProposalContent({
       {/* Content wrapper */}
       <div
         style={{
-          maxHeight: isExpanded ? "none" : "400px",
+          maxHeight: isExpanded ? "none" : "600px",
           overflow: "hidden",
           position: "relative",
         }}
@@ -202,8 +243,8 @@ export default function ProposalContent({
         )}
       </div>
 
-      {/* Read More/Hide button */}
-      {!isExpanded ? (
+      {/* Read More button (only shown when collapsed) */}
+      {!isExpanded && (
         <div style={{ marginTop: "1rem", textAlign: "center" }}>
           <button
             onClick={() => onToggleExpand(true)}
@@ -225,42 +266,7 @@ export default function ProposalContent({
               e.currentTarget.style.background = "#f3f4f6";
             }}
           >
-            Read More
-          </button>
-        </div>
-      ) : (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 1000,
-          }}
-        >
-          <button
-            onClick={() => onToggleExpand(false)}
-            style={{
-              padding: "0.75rem 2rem",
-              fontSize: "0.875rem",
-              fontWeight: "600",
-              color: "#374151",
-              background: "#f3f4f6",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              boxShadow:
-                "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#e5e7eb";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#f3f4f6";
-            }}
-          >
-            Hide
+            Read More ↓
           </button>
         </div>
       )}

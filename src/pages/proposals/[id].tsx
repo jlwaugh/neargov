@@ -75,6 +75,7 @@ export default function ProposalDetail() {
   const [currentRevision, setCurrentRevision] = useState<number>(1);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [showRevisions, setShowRevisions] = useState(false);
+  const [showReplies, setShowReplies] = useState(false); // New state for toggling replies - hidden by default
 
   // Version control state
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -481,13 +482,7 @@ export default function ProposalDetail() {
                 <span style={{ fontWeight: "600", color: "#374151" }}>
                   {formatNumber(proposal.reply_count)}
                 </span>{" "}
-                💬
-              </div>
-              <div>
-                <span style={{ fontWeight: "600", color: "#374151" }}>
-                  {formatNumber(proposal.views)}
-                </span>{" "}
-                👁
+                replies
               </div>
               <div>
                 <span style={{ fontWeight: "600", color: "#374151" }}>
@@ -601,44 +596,89 @@ export default function ProposalDetail() {
                     marginBottom: "1.5rem",
                   }}
                 >
-                  <h2 style={{ fontSize: "1.125rem", margin: 0 }}>
-                    Replies ({proposal.replies.length})
-                  </h2>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "1rem",
+                    }}
+                  >
+                    <h2 style={{ fontSize: "1.125rem", margin: 0 }}>
+                      Discussion
+                    </h2>
 
-                  {/* Topic Summary Button */}
-                  {!topicSummary ? (
+                    {/* Topic Summary Button - Toggles between Summarize and Hide */}
                     <button
-                      onClick={fetchTopicSummary}
+                      onClick={() => {
+                        if (topicSummary) {
+                          setTopicSummary(null);
+                        } else {
+                          fetchTopicSummary();
+                        }
+                      }}
                       disabled={topicSummaryLoading}
                       style={{
                         padding: "0.5rem 1rem",
                         fontSize: "0.875rem",
                         fontWeight: "600",
-                        color: "#059669",
-                        background: "white",
-                        border: "1px solid #059669",
-                        borderRadius: "6px",
+                        color: topicSummary ? "#6b7280" : "white",
+                        background: topicSummary ? "white" : "#0F4FD8",
+                        border: topicSummary
+                          ? "1px solid #d1d5db"
+                          : "1px solid #0F4FD8",
+                        borderRadius: "5px",
                         cursor: topicSummaryLoading ? "not-allowed" : "pointer",
                         transition: "all 0.2s",
                         opacity: topicSummaryLoading ? 0.6 : 1,
                       }}
                       onMouseEnter={(e) => {
                         if (!topicSummaryLoading) {
-                          e.currentTarget.style.background = "#f0fdf4";
+                          e.currentTarget.style.background = topicSummary
+                            ? "#f9fafb"
+                            : "#2C65DF";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "white";
+                        e.currentTarget.style.background = topicSummary
+                          ? "white"
+                          : "#0F4FD8";
                       }}
                     >
                       {topicSummaryLoading
                         ? "Analyzing..."
-                        : "Summarize Discussion"}
+                        : topicSummary
+                        ? "Hide Summary"
+                        : "Summarize"}
                     </button>
-                  ) : null}
+                  </div>
+
+                  {/* Show/Hide Replies Toggle Button - Stays on the right */}
+                  <button
+                    onClick={() => setShowReplies(!showReplies)}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      fontSize: "0.875rem",
+                      fontWeight: "600",
+                      color: "#6b7280",
+                      background: "white",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#f9fafb";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "white";
+                    }}
+                  >
+                    {showReplies ? "Hide" : "Show"} Replies (
+                    {proposal.replies.length})
+                  </button>
                 </div>
 
-                {/* Topic Summary Display */}
+                {/* Topic Summary Display - Always visible when summary exists */}
                 {topicSummary && (
                   <div
                     style={{
@@ -651,34 +691,13 @@ export default function ProposalDetail() {
                   >
                     <div
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
+                        fontSize: "0.875rem",
+                        fontWeight: "600",
+                        color: "#047857",
                         marginBottom: "0.5rem",
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: "0.875rem",
-                          fontWeight: "600",
-                          color: "#047857",
-                        }}
-                      >
-                        Discussion Summary
-                      </div>
-                      <button
-                        onClick={() => setTopicSummary(null)}
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#6b7280",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: "0.25rem 0.5rem",
-                        }}
-                      >
-                        Hide
-                      </button>
+                      Discussion Summary
                     </div>
                     <Markdown
                       content={topicSummary}
@@ -691,160 +710,163 @@ export default function ProposalDetail() {
                   </div>
                 )}
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "1.5rem",
-                  }}
-                >
-                  {proposal.replies.map((reply) => (
-                    <div
-                      key={reply.id}
-                      style={{
-                        padding: "1rem",
-                        backgroundColor: "#f9fafb",
-                        borderRadius: "0.5rem",
-                        borderLeft: "3px solid #e5e7eb",
-                      }}
-                    >
+                {/* Replies List */}
+                {showReplies && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1.5rem",
+                    }}
+                  >
+                    {proposal.replies.map((reply) => (
                       <div
+                        key={reply.id}
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: "0.75rem",
-                          fontSize: "0.875rem",
-                          color: "#6b7280",
+                          padding: "1rem",
+                          backgroundColor: "#f9fafb",
+                          borderRadius: "0.5rem",
+                          borderLeft: "3px solid #e5e7eb",
                         }}
                       >
-                        <div>
-                          <strong style={{ color: "#374151" }}>
-                            @{reply.username}
-                          </strong>
-                          <span style={{ marginLeft: "0.5rem" }}>
-                            #{reply.post_number}
-                          </span>
-                        </div>
-                        <div>
-                          {new Date(reply.created_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            }
-                          )}{" "}
-                          at{" "}
-                          {new Date(reply.created_at).toLocaleTimeString(
-                            "en-US",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          lineHeight: "1.6",
-                          color: "#374151",
-                          marginBottom: "0.75rem",
-                        }}
-                        dangerouslySetInnerHTML={{ __html: reply.cooked }}
-                      />
-
-                      {/* Reply Summary Button */}
-                      {!replySummaries[reply.id] ? (
-                        <button
-                          onClick={() => fetchReplySummary(reply.id)}
-                          disabled={replySummaryLoading[reply.id]}
-                          style={{
-                            padding: "0.375rem 0.75rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "600",
-                            color: "#ea580c",
-                            background: "white",
-                            border: "1px solid #ea580c",
-                            borderRadius: "4px",
-                            cursor: replySummaryLoading[reply.id]
-                              ? "not-allowed"
-                              : "pointer",
-                            transition: "all 0.2s",
-                            opacity: replySummaryLoading[reply.id] ? 0.6 : 1,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!replySummaryLoading[reply.id]) {
-                              e.currentTarget.style.background = "#fff7ed";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "white";
-                          }}
-                        >
-                          {replySummaryLoading[reply.id]
-                            ? "Summarizing..."
-                            : "Summarize"}
-                        </button>
-                      ) : (
                         <div
                           style={{
-                            padding: "0.75rem",
-                            background: "#fff7ed",
-                            border: "1px solid #fed7aa",
-                            borderRadius: "4px",
-                            marginTop: "0.5rem",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "0.75rem",
+                            fontSize: "0.875rem",
+                            color: "#6b7280",
                           }}
                         >
+                          <div>
+                            <strong style={{ color: "#374151" }}>
+                              @{reply.username}
+                            </strong>
+                            <span style={{ marginLeft: "0.5rem" }}>
+                              #{reply.post_number}
+                            </span>
+                          </div>
+                          <div>
+                            {new Date(reply.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )}{" "}
+                            at{" "}
+                            {new Date(reply.created_at).toLocaleTimeString(
+                              "en-US",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            lineHeight: "1.6",
+                            color: "#374151",
+                            marginBottom: "0.75rem",
+                          }}
+                          dangerouslySetInnerHTML={{ __html: reply.cooked }}
+                        />
+
+                        {/* Reply Summary Button */}
+                        {!replySummaries[reply.id] ? (
+                          <button
+                            onClick={() => fetchReplySummary(reply.id)}
+                            disabled={replySummaryLoading[reply.id]}
+                            style={{
+                              padding: "0.375rem 0.75rem",
+                              fontSize: "0.75rem",
+                              fontWeight: "600",
+                              color: "#ea580c",
+                              background: "white",
+                              border: "1px solid #ea580c",
+                              borderRadius: "4px",
+                              cursor: replySummaryLoading[reply.id]
+                                ? "not-allowed"
+                                : "pointer",
+                              transition: "all 0.2s",
+                              opacity: replySummaryLoading[reply.id] ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!replySummaryLoading[reply.id]) {
+                                e.currentTarget.style.background = "#fff7ed";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "white";
+                            }}
+                          >
+                            {replySummaryLoading[reply.id]
+                              ? "Summarizing..."
+                              : "Summarize"}
+                          </button>
+                        ) : (
                           <div
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              marginBottom: "0.5rem",
+                              padding: "0.75rem",
+                              background: "#fff7ed",
+                              border: "1px solid #fed7aa",
+                              borderRadius: "4px",
+                              marginTop: "0.5rem",
                             }}
                           >
                             <div
                               style={{
-                                fontSize: "0.75rem",
-                                fontWeight: "600",
-                                color: "#c2410c",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "0.5rem",
                               }}
                             >
-                              Summary
+                              <div
+                                style={{
+                                  fontSize: "0.75rem",
+                                  fontWeight: "600",
+                                  color: "#c2410c",
+                                }}
+                              >
+                                Summary
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setReplySummaries((prev) => {
+                                    const newSummaries = { ...prev };
+                                    delete newSummaries[reply.id];
+                                    return newSummaries;
+                                  });
+                                }}
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "#6b7280",
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  padding: "0.25rem 0.5rem",
+                                }}
+                              >
+                                Hide
+                              </button>
                             </div>
-                            <button
-                              onClick={() => {
-                                setReplySummaries((prev) => {
-                                  const newSummaries = { ...prev };
-                                  delete newSummaries[reply.id];
-                                  return newSummaries;
-                                });
-                              }}
+                            <Markdown
+                              content={replySummaries[reply.id]}
                               style={{
                                 fontSize: "0.75rem",
-                                color: "#6b7280",
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                padding: "0.25rem 0.5rem",
+                                lineHeight: "1.6",
+                                color: "#374151",
                               }}
-                            >
-                              Hide
-                            </button>
+                            />
                           </div>
-                          <Markdown
-                            content={replySummaries[reply.id]}
-                            style={{
-                              fontSize: "0.75rem",
-                              lineHeight: "1.6",
-                              color: "#374151",
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -889,7 +911,7 @@ export default function ProposalDetail() {
               (!wallet || !signedAccountId) && (
                 <div className="card">
                   <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                    💡 Connect your NEAR wallet to screen this proposal with AI
+                    Connect your NEAR wallet to screen this proposal with AI
                   </p>
                 </div>
               )}

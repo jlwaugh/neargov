@@ -128,7 +128,7 @@ Be thorough but concise. Focus on information relevant to decision-making.`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "Qwen/Qwen3-30B-A3B-Instruct-2507",
+          model: "deepseek-ai/DeepSeek-V3.1",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.5,
           max_tokens: 800,

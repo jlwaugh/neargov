@@ -16,6 +16,23 @@ export const Navigation = () => {
   const { signedAccountId, loading, signIn, signOut } = useNear();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const buttonBase = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "0.5rem",
+    padding: "0.5rem 1.25rem",
+    height: "36px",
+    lineHeight: 1,
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    borderRadius: "6px",
+    border: "none",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    textDecoration: "none",
+  };
+
   // Check Discourse linkage status
   useEffect(() => {
     const checkDiscourseLink = async () => {
@@ -71,25 +88,28 @@ export const Navigation = () => {
   return (
     <nav
       style={{
-        position: "sticky" as const,
+        position: "sticky",
         top: 0,
         zIndex: 50,
         background: "rgba(255, 255, 255, 0.95)",
         backdropFilter: "blur(12px)",
         borderBottom: "1px solid #E5E7EB",
+        padding: "0 1.5rem",
       }}
     >
       <div
         style={{
           maxWidth: "1200px",
           margin: "0 auto",
-          padding: "1rem 1.5rem",
+          padding: "1rem 0",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          width: "100%",
         }}
       >
-        <Link href="/">
+        {/* Logo */}
+        <Link href="/" style={{ display: "inline-flex", alignItems: "center" }}>
           <Image
             priority
             src={NearLogo}
@@ -100,29 +120,23 @@ export const Navigation = () => {
           />
         </Link>
 
+        {/* Right controls */}
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           {/* New Proposal Button */}
           <Link
             href="/proposals/new"
             style={{
-              padding: "0.5rem 1.25rem",
-              fontSize: "0.875rem",
-              fontWeight: "600",
-              color: "#FFFFFF",
+              ...buttonBase,
+              color: "#000000",
               background: "#00ec97",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              textDecoration: "none",
-              display: "inline-block",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#00d488")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#00E494")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "#00ec97")}
           >
-            + New Proposal
+            Create
           </Link>
 
+          {/* Account/Login Section */}
           {loading ? (
             <div style={{ padding: "0.5rem 1.25rem" }}>Loading...</div>
           ) : signedAccountId ? (
@@ -130,19 +144,10 @@ export const Navigation = () => {
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
                 style={{
-                  padding: "0.5rem 1.25rem",
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  color: "#FFFFFF",
+                  ...buttonBase,
+                  WebkitAppearance: "none",
+                  color: "#ffffff",
                   background: "#000000",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  position: "relative",
                 }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = "#1a1a1a")
@@ -162,6 +167,7 @@ export const Navigation = () => {
                       background: "#10b981",
                       borderRadius: "50%",
                       border: "2px solid #ffffff",
+                      flex: "0 0 auto",
                     }}
                     title="Discourse Connected"
                   />
@@ -217,6 +223,7 @@ export const Navigation = () => {
                     )}
                   </div>
 
+                  {/* Profile Link */}
                   <Link
                     href="/profile"
                     onClick={() => setShowDropdown(false)}
@@ -235,9 +242,12 @@ export const Navigation = () => {
                       (e.currentTarget.style.background = "#ffffff")
                     }
                   >
-                    👤 Profile
+                    Profile
                   </Link>
+
                   <div style={{ borderTop: "1px solid #e5e7eb" }} />
+
+                  {/* Logout Button */}
                   <button
                     onClick={handleLogout}
                     style={{
@@ -258,7 +268,7 @@ export const Navigation = () => {
                       (e.currentTarget.style.background = "transparent")
                     }
                   >
-                    🚪 Logout
+                    Logout
                   </button>
                 </div>
               )}
@@ -267,15 +277,10 @@ export const Navigation = () => {
             <button
               onClick={signIn}
               style={{
-                padding: "0.5rem 1.25rem",
-                fontSize: "0.875rem",
-                fontWeight: "600",
-                color: "#FFFFFF",
+                ...buttonBase,
+                WebkitAppearance: "none",
+                color: "#ffffff",
                 background: "#000000",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                transition: "all 0.2s",
               }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.background = "#1a1a1a")

@@ -127,31 +127,45 @@ export default function VersionSelector({
         {/* Summarize All Revisions Button */}
         {!revisionSummary && (
           <button
-            onClick={onSummarizeChanges}
+            onClick={() => {
+              if (revisionSummary) {
+                onHideSummary();
+              } else {
+                onSummarizeChanges();
+              }
+            }}
             disabled={revisionSummaryLoading}
             style={{
               padding: "0.5rem 1rem",
               fontSize: "0.875rem",
               fontWeight: "600",
-              color: "#7c3aed",
-              background: "white",
-              border: "1px solid #7c3aed",
-              borderRadius: "4px",
+              color: revisionSummary ? "#6b7280" : "white",
+              background: revisionSummary ? "white" : "#4B4BFD",
+              border: revisionSummary
+                ? "1px solid #d1d5db"
+                : "1px solid #4B4BFD",
+              borderRadius: "5px",
               cursor: revisionSummaryLoading ? "not-allowed" : "pointer",
               transition: "all 0.2s",
               opacity: revisionSummaryLoading ? 0.6 : 1,
             }}
             onMouseEnter={(e) => {
               if (!revisionSummaryLoading) {
-                e.currentTarget.style.background = "#faf5ff";
+                e.currentTarget.style.background = revisionSummary
+                  ? "#f9fafb"
+                  : "#7272FF";
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "white";
+              e.currentTarget.style.background = revisionSummary
+                ? "white"
+                : "#4B4BFD";
             }}
           >
             {revisionSummaryLoading
-              ? "Analyzing..."
+              ? "Generating..."
+              : revisionSummary
+              ? "Hide Summary"
               : "Summarize All Revisions"}
           </button>
         )}
