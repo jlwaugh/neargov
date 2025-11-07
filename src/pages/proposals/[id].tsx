@@ -5,6 +5,7 @@ import ProposalContent from "@/components/ProposalContent";
 import { ScreeningBadge } from "@/components/ScreeningBadge";
 import { ScreeningButton } from "@/components/ScreeningButton";
 import { Markdown } from "@/components/Markdown";
+import { ProposalChatbot } from "@/components/chat/ProposalChatbot";
 import { useNear } from "@/hooks/useNear";
 import type { Evaluation } from "@/types/evaluation";
 import { reconstructRevisionContent } from "@/lib/revisionContentUtils";
@@ -75,7 +76,7 @@ export default function ProposalDetail() {
   const [currentRevision, setCurrentRevision] = useState<number>(1);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [showRevisions, setShowRevisions] = useState(false);
-  const [showReplies, setShowReplies] = useState(false); // New state for toggling replies - hidden by default
+  const [showReplies, setShowReplies] = useState(false);
 
   // Version control state
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -154,13 +155,11 @@ export default function ProposalDetail() {
 
   const fetchScreening = async (topicId: string, revisionNumber: number) => {
     try {
-      // Fetch screening for the specific revision
       const response = await fetch(
         `/api/getAnalysis/${topicId}?revisionNumber=${revisionNumber}`
       );
 
       if (response.status === 404) {
-        // No screening exists for this revision
         setScreening(null);
       } else if (response.ok) {
         const data = await response.json();
@@ -194,7 +193,6 @@ export default function ProposalDetail() {
         setVersionDiffHtml("");
       }
     } else {
-      // Historical version - reconstruct
       console.log("🔍 Reconstructing version:", version);
 
       try {
@@ -208,7 +206,6 @@ export default function ProposalDetail() {
 
         setVersionContent(reconstructedContent);
 
-        // Get diff HTML for this version
         const revision = revisions.find((r) => r.version === version);
         if (revision && revision.body_changes?.inline) {
           console.log("✅ Setting diff HTML for historical version");
@@ -224,7 +221,6 @@ export default function ProposalDetail() {
       }
     }
 
-    // Update screening
     if (id) {
       fetchScreening(id as string, version);
     }
@@ -379,7 +375,6 @@ export default function ProposalDetail() {
               {proposal.title}
             </h1>
 
-            {/* Overall Pass/Fail - Top Right */}
             {screening && screening.revisionNumber === selectedVersion && (
               <div
                 style={{
@@ -423,7 +418,6 @@ export default function ProposalDetail() {
             )}
           </div>
 
-          {/* Compact metadata row */}
           <div
             style={{
               display: "flex",
@@ -435,7 +429,6 @@ export default function ProposalDetail() {
               color: "#6b7280",
             }}
           >
-            {/* Left side: Author info */}
             <div>
               <strong style={{ color: "#374151" }}>@{proposal.username}</strong>
               {proposal.near_wallet && (
@@ -470,7 +463,6 @@ export default function ProposalDetail() {
               </span>
             </div>
 
-            {/* Right side: Activity stats - Bottom Right */}
             <div
               style={{
                 display: "flex",
@@ -517,7 +509,6 @@ export default function ProposalDetail() {
           >
             {/* Proposal Content */}
             <div className="card" style={{ position: "relative" }}>
-              {/* Version Selector - conditionally rendered */}
               {showRevisions && (
                 <VersionSelector
                   currentRevision={currentRevision}
@@ -534,7 +525,6 @@ export default function ProposalDetail() {
                 />
               )}
 
-              {/* Proposal Content with integrated summary button and show revisions toggle */}
               <ProposalContent
                 content={
                   showDiffHighlights && versionDiffHtml
@@ -553,7 +543,6 @@ export default function ProposalDetail() {
                 revisionCount={revisions.length}
               />
 
-              {/* Keep existing table styles */}
               <style jsx>{`
                 .card :global(table) {
                   width: 100%;
@@ -607,7 +596,6 @@ export default function ProposalDetail() {
                       Discussion
                     </h2>
 
-                    {/* Topic Summary Button - Toggles between Summarize and Hide */}
                     <button
                       onClick={() => {
                         if (topicSummary) {
@@ -652,7 +640,6 @@ export default function ProposalDetail() {
                     </button>
                   </div>
 
-                  {/* Show/Hide Replies Toggle Button - Stays on the right */}
                   <button
                     onClick={() => setShowReplies(!showReplies)}
                     style={{
@@ -678,7 +665,6 @@ export default function ProposalDetail() {
                   </button>
                 </div>
 
-                {/* Topic Summary Display - Always visible when summary exists */}
                 {topicSummary && (
                   <div
                     style={{
@@ -710,7 +696,6 @@ export default function ProposalDetail() {
                   </div>
                 )}
 
-                {/* Replies List */}
                 {showReplies && (
                   <div
                     style={{
@@ -774,7 +759,6 @@ export default function ProposalDetail() {
                           dangerouslySetInnerHTML={{ __html: reply.cooked }}
                         />
 
-                        {/* Reply Summary Button */}
                         {!replySummaries[reply.id] ? (
                           <button
                             onClick={() => fetchReplySummary(reply.id)}
@@ -915,6 +899,15 @@ export default function ProposalDetail() {
                   </p>
                 </div>
               )}
+
+            {/* Chatbot Component */}
+            <ProposalChatbot
+              proposalTitle={proposal.title}
+              proposalContent={versionContent || proposal.content}
+              proposalId={id as string}
+              replies={proposal.replies || []}
+              proposalAuthor={proposal.username}
+            />
           </div>
         </div>
       </div>
