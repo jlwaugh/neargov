@@ -77,6 +77,7 @@ export default function ProposalDetail() {
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [showRevisions, setShowRevisions] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
+  const [showScreening, setShowScreening] = useState(true);
 
   // Version control state
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -866,39 +867,93 @@ export default function ProposalDetail() {
               paddingRight: "0.5rem",
             }}
           >
-            {/* AI Screening Badge or Button */}
-            {screeningChecked &&
-              screening &&
-              screening.revisionNumber === selectedVersion && (
-                <ScreeningBadge screening={screening} />
-              )}
-
-            {screeningChecked &&
-              (!screening || screening.revisionNumber !== selectedVersion) &&
-              wallet &&
-              signedAccountId && (
-                <ScreeningButton
-                  topicId={id as string}
-                  title={proposal.title}
-                  content={versionContent || proposal.content}
-                  nearAccount={signedAccountId}
-                  wallet={wallet}
-                  revisionNumber={selectedVersion}
-                  onScreeningComplete={() =>
-                    fetchScreening(id as string, selectedVersion)
-                  }
-                />
-              )}
-
-            {screeningChecked &&
-              (!screening || screening.revisionNumber !== selectedVersion) &&
-              (!wallet || !signedAccountId) && (
-                <div className="card">
-                  <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                    Connect your NEAR wallet to screen this proposal with AI
-                  </p>
+            {/* AI Screening Section - Now Collapsible */}
+            {screeningChecked && (
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "0.75rem 0",
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: "600",
+                      margin: 0,
+                      color: "#374151",
+                    }}
+                  >
+                    AI Screening
+                  </h3>
+                  <button
+                    onClick={() => setShowScreening(!showScreening)}
+                    style={{
+                      padding: "0.25rem 0.5rem",
+                      fontSize: "0.875rem",
+                      color: "#6b7280",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "color 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "#374151";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "#6b7280";
+                    }}
+                  >
+                    {showScreening ? "Hide ▲" : "Show ▼"}
+                  </button>
                 </div>
-              )}
+
+                {showScreening && (
+                  <>
+                    {screening &&
+                      screening.revisionNumber === selectedVersion && (
+                        <ScreeningBadge screening={screening} />
+                      )}
+
+                    {(!screening ||
+                      screening.revisionNumber !== selectedVersion) &&
+                      wallet &&
+                      signedAccountId && (
+                        <ScreeningButton
+                          topicId={id as string}
+                          title={proposal.title}
+                          content={versionContent || proposal.content}
+                          nearAccount={signedAccountId}
+                          wallet={wallet}
+                          revisionNumber={selectedVersion}
+                          onScreeningComplete={() =>
+                            fetchScreening(id as string, selectedVersion)
+                          }
+                        />
+                      )}
+
+                    {(!screening ||
+                      screening.revisionNumber !== selectedVersion) &&
+                      (!wallet || !signedAccountId) && (
+                        <div className="card">
+                          <p
+                            style={{
+                              fontSize: "0.875rem",
+                              color: "#6b7280",
+                              margin: 0,
+                            }}
+                          >
+                            Connect your NEAR wallet to screen this proposal
+                            with AI
+                          </p>
+                        </div>
+                      )}
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Chatbot Component */}
             <ProposalChatbot

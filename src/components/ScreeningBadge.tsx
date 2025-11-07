@@ -18,31 +18,17 @@ interface CriterionDetail {
 }
 
 const CRITERIA: CriterionDetail[] = [
+  { key: "alignment", label: "Alignment Score", icon: "" },
   { key: "complete", label: "Complete", icon: "" },
   { key: "legible", label: "Legible", icon: "" },
   { key: "consistent", label: "Consistent", icon: "" },
   { key: "genuine", label: "Genuine", icon: "" },
   { key: "compliant", label: "Compliant", icon: "" },
   { key: "justified", label: "Justified", icon: "" },
-  { key: "alignment", label: "Alignment Score", icon: "" },
 ];
 
 export function ScreeningBadge({ screening }: ScreeningBadgeProps) {
-  const [expandedCriteria, setExpandedCriteria] = useState<Set<string>>(
-    new Set()
-  );
-
-  const toggleCriterion = (key: string) => {
-    setExpandedCriteria((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   const getCriterionResult = (key: string) => {
     const result = screening.evaluation[key as keyof Evaluation];
@@ -110,120 +96,77 @@ export function ScreeningBadge({ screening }: ScreeningBadgeProps) {
   return (
     <div className="card">
       {/* Header */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            marginBottom: "0.5rem",
-          }}
-        >
-          <h2 style={{ fontSize: "1.125rem", margin: 0 }}>AI Screening</h2>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <p
+            style={{
+              fontSize: "0.875rem",
+              color: "#6b7280",
+              margin: 0,
+            }}
+          >
+            Screened by <strong>{screening.nearAccount}</strong>
+          </p>
+          <p
+            style={{
+              fontSize: "0.75rem",
+              color: "#9ca3af",
+            }}
+          >
+            {new Date(screening.timestamp).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}{" "}
+            • Revision {screening.revisionNumber}
+          </p>
         </div>
+
         <div
           style={{
+            padding: "1rem",
+            marginBottom: "0.5rem",
             display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
           }}
         >
           <div>
             <p
               style={{
-                fontSize: "0.875rem",
-                color: "#6b7280",
+                fontSize: "0.888rem",
+                textAlign: "right",
                 margin: 0,
               }}
             >
-              Screened by <strong>{screening.nearAccount}</strong>
+              Score:
             </p>
             <p
               style={{
-                fontSize: "0.75rem",
-                color: "#9ca3af",
-                margin: "0.25rem 0 0 0",
+                fontSize: "1rem",
+                fontWeight: 555,
+                textAlign: "right",
+                margin: 0,
               }}
             >
-              {new Date(screening.timestamp).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}{" "}
-              • Revision {screening.revisionNumber}
+              {points}/{total}
             </p>
           </div>
-
-          {/* Overall Pass/Fail */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.875rem",
-                color: "#6b7280",
-                fontWeight: "600",
-              }}
-            >
-              {screening.evaluation.overallPass ? "Pass" : "Fail"}
-            </div>
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "50%",
-                background: screening.evaluation.overallPass
-                  ? "#d1fae5"
-                  : "#fee2e2",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1rem",
-                fontWeight: "700",
-                color: screening.evaluation.overallPass ? "#065f46" : "#991b1b",
-              }}
-            >
-              {screening.evaluation.overallPass ? "✓" : "✕"}
-            </div>
-          </div>
         </div>
       </div>
-
-      {/* Overall Score */}
-      <div
-        style={{
-          padding: "1rem",
-          background: "#f9fafb",
-          borderRadius: "8px",
-          marginBottom: "1.5rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <div style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-            Overall Score
-          </div>
-          <div style={{ fontSize: "1.5rem", fontWeight: "700" }}>
-            {points}/{total}
-          </div>
-        </div>
-      </div>
-
-      {/* Individual Criteria */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-        {CRITERIA.map((criterion, index) => {
+      {/* Individual Criteria - Accordion Style */}
+      <div className="screening-accordion">
+        {CRITERIA.map((criterion) => {
           const result = getCriterionResult(criterion.key);
           const status = getPassFailStatus(result);
-          const isExpanded = expandedCriteria.has(criterion.key);
           const isAlignment = criterion.key === "alignment";
+          const isOpen = openKey === criterion.key;
 
           if (!result) return null;
 
@@ -237,177 +180,168 @@ export function ScreeningBadge({ screening }: ScreeningBadgeProps) {
             : "white";
 
           return (
-            <div key={criterion.key}>
-              <div
+            <div
+              key={criterion.key}
+              style={{
+                border: isAlignment ? "2px solid" : "1px solid #e5e7eb",
+                borderColor: isAlignment
+                  ? status === "pass"
+                    ? "#10b981"
+                    : status === "medium"
+                    ? "#f59e0b"
+                    : "#ef4444"
+                  : "#e5e7eb",
+                borderRadius: "8px",
+                overflow: "hidden",
+                boxShadow: isAlignment ? "0 4px 6px rgba(0,0,0,0.1)" : "none",
+                transform: isAlignment ? "scale(1.02)" : "scale(1)",
+                marginBottom: "0.75rem",
+                transition: "all 0.2s ease",
+              }}
+            >
+              {/* Criterion Header (Button) */}
+              <button
+                onClick={() => setOpenKey(isOpen ? null : criterion.key)}
                 style={{
-                  border: isAlignment ? "2px solid" : "1px solid #e5e7eb",
-                  borderColor: isAlignment
-                    ? status === "pass"
-                      ? "#10b981"
-                      : status === "medium"
-                      ? "#f59e0b"
-                      : "#ef4444"
-                    : "#e5e7eb",
-                  borderRadius: "8px",
-                  overflow: "hidden",
-                  boxShadow: isAlignment ? "0 4px 6px rgba(0,0,0,0.1)" : "none",
-                  transform: isAlignment ? "scale(1.02)" : "scale(1)",
-                  transition: "transform 0.2s",
+                  width: "100%",
+                  padding: isAlignment ? "1rem 1.25rem" : "0.875rem 1rem",
+                  background: alignmentGradient,
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  transition: "all 0.2s",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isAlignment) {
+                    e.currentTarget.style.background = "#fafafa";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isAlignment) {
+                    e.currentTarget.style.background = "white";
+                  }
                 }}
               >
-                {/* Criterion Header (Clickable) */}
-                <button
-                  onClick={() => toggleCriterion(criterion.key)}
+                <div
                   style={{
-                    width: "100%",
-                    padding: isAlignment ? "1rem 1.25rem" : "0.875rem 1rem",
-                    background: isExpanded
-                      ? isAlignment
-                        ? alignmentGradient
-                        : "#f9fafb"
-                      : isAlignment
-                      ? alignmentGradient
-                      : "white",
-                    border: "none",
-                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    transition: "all 0.2s",
-                    textAlign: "left",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isExpanded && !isAlignment) {
-                      e.currentTarget.style.background = "#fafafa";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isExpanded && !isAlignment) {
-                      e.currentTarget.style.background = "white";
-                    }
+                    gap: "0.75rem",
                   }}
                 >
-                  <div
+                  <span
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
+                      fontWeight: isAlignment ? "700" : "600",
+                      fontSize: isAlignment ? "1rem" : "0.9rem",
+                      color: isAlignment ? "#1a1a1a" : "inherit",
                     }}
                   >
-                    <span
-                      style={{
-                        fontWeight: isAlignment ? "700" : "600",
-                        fontSize: isAlignment ? "1rem" : "0.9rem",
-                        color: isAlignment ? "#1a1a1a" : "inherit",
-                      }}
-                    >
-                      {criterion.label}
-                    </span>
-                  </div>
-                  <div
+                    {criterion.label}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                  }}
+                >
+                  {/* Pass/Fail Badge */}
+                  <span
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                    }}
-                  >
-                    {/* Pass/Fail Badge */}
-                    <span
-                      style={{
-                        padding: isAlignment
-                          ? "0.375rem 1rem"
-                          : "0.25rem 0.75rem",
-                        borderRadius: "6px",
-                        fontSize: isAlignment ? "0.8rem" : "0.75rem",
-                        fontWeight: "700",
-                        background:
-                          status === "pass"
-                            ? isAlignment
-                              ? "#065f46"
-                              : "#d1fae5"
-                            : status === "medium"
-                            ? isAlignment
-                              ? "#92400e"
-                              : "#fef3c7"
-                            : isAlignment
-                            ? "#991b1b"
-                            : "#fee2e2",
-                        color:
-                          status === "pass"
-                            ? isAlignment
-                              ? "#ffffff"
-                              : "#065f46"
-                            : status === "medium"
-                            ? isAlignment
-                              ? "#ffffff"
-                              : "#92400e"
-                            : isAlignment
-                            ? "#ffffff"
-                            : "#991b1b",
-                        boxShadow: isAlignment
-                          ? "0 2px 4px rgba(0,0,0,0.1)"
-                          : "none",
-                      }}
-                    >
-                      {status === "pass"
-                        ? isAlignment
-                          ? "HIGH"
-                          : "PASS"
-                        : status === "medium"
-                        ? "MEDIUM"
-                        : isAlignment
-                        ? "LOW"
-                        : "FAIL"}
-                    </span>
-                    {/* Expand/Collapse Icon */}
-                    <span
-                      style={{
-                        fontSize: "0.875rem",
-                        color: isAlignment ? "#1a1a1a" : "#9ca3af",
-                        transform: isExpanded
-                          ? "rotate(180deg)"
-                          : "rotate(0deg)",
-                        transition: "transform 0.2s",
-                        display: "inline-block",
-                      }}
-                    >
-                      ▼
-                    </span>
-                  </div>
-                </button>
-
-                {/* Expanded Details */}
-                {isExpanded && (
-                  <div
-                    style={{
-                      padding: "1rem",
-                      borderTop: isAlignment
-                        ? "2px solid"
-                        : "1px solid #e5e7eb",
-                      borderTopColor: isAlignment
-                        ? status === "pass"
-                          ? "#10b981"
+                      padding: isAlignment
+                        ? "0.375rem 1rem"
+                        : "0.25rem 0.75rem",
+                      borderRadius: "6px",
+                      fontSize: isAlignment ? "0.8rem" : "0.75rem",
+                      fontWeight: "700",
+                      background:
+                        status === "pass"
+                          ? isAlignment
+                            ? "#065f46"
+                            : "#d1fae5"
                           : status === "medium"
-                          ? "#f59e0b"
-                          : "#ef4444"
-                        : "#e5e7eb",
-                      background: "white",
+                          ? isAlignment
+                            ? "#92400e"
+                            : "#fef3c7"
+                          : isAlignment
+                          ? "#991b1b"
+                          : "#fee2e2",
+                      color:
+                        status === "pass"
+                          ? isAlignment
+                            ? "#ffffff"
+                            : "#065f46"
+                          : status === "medium"
+                          ? isAlignment
+                            ? "#ffffff"
+                            : "#92400e"
+                          : isAlignment
+                          ? "#ffffff"
+                          : "#991b1b",
+                      boxShadow: isAlignment
+                        ? "0 2px 4px rgba(0,0,0,0.1)"
+                        : "none",
                     }}
                   >
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        lineHeight: "1.6",
-                        color: "#374151",
-                        margin: 0,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {result.reason || "No details provided."}
-                    </p>
-                  </div>
-                )}
-              </div>
+                    {status === "pass"
+                      ? isAlignment
+                        ? "HIGH"
+                        : "PASS"
+                      : status === "medium"
+                      ? "MEDIUM"
+                      : isAlignment
+                      ? "LOW"
+                      : "FAIL"}
+                  </span>
+                  {/* Expand/Collapse Icon */}
+                  <span
+                    style={{
+                      fontSize: "0.875rem",
+                      color: isAlignment ? "#1a1a1a" : "#9ca3af",
+                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      transition: "transform 0.2s ease",
+                      display: "inline-block",
+                    }}
+                  >
+                    ▼
+                  </span>
+                </div>
+              </button>
+
+              {/* Expanded Details */}
+              {isOpen && (
+                <div
+                  style={{
+                    padding: "1rem",
+                    borderTop: isAlignment ? "2px solid" : "1px solid #e5e7eb",
+                    borderTopColor: isAlignment
+                      ? status === "pass"
+                        ? "#10b981"
+                        : status === "medium"
+                        ? "#f59e0b"
+                        : "#ef4444"
+                      : "#e5e7eb",
+                    background: "white",
+                    animation: "slideDown 0.2s ease-out",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "0.875rem",
+                      lineHeight: "1.6",
+                      color: "#374151",
+                      margin: 0,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {result.reason || "No details provided."}
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}
